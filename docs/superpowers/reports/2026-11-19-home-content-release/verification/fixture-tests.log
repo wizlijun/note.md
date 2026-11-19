@@ -1,0 +1,24 @@
+test_ai_content_action_rejected (test_home_checks.CurrentSourceTests.test_ai_content_action_rejected) ... ok
+test_current_accepted_source_layout (test_home_checks.CurrentSourceTests.test_current_accepted_source_layout) ... ok
+test_four_row_default_rejected (test_home_checks.CurrentSourceTests.test_four_row_default_rejected) ... ok
+test_home_edit_callback_missing_rejected (test_home_checks.CurrentSourceTests.test_home_edit_callback_missing_rejected) ... ok
+test_complete_css_dark_palette_required (test_home_checks.EmbeddedTests.test_complete_css_dark_palette_required) ... ok
+test_complete_signed_module_witnesses (test_home_checks.EmbeddedTests.test_complete_signed_module_witnesses) ... ok
+test_each_role_missing_rejected (test_home_checks.EmbeddedTests.test_each_role_missing_rejected) ... ok
+test_four_row_compiled_default_rejected (test_home_checks.EmbeddedTests.test_four_row_compiled_default_rejected) ... ok
+test_seven_slot_compiled_default_rejected (test_home_checks.EmbeddedTests.test_seven_slot_compiled_default_rejected) ... ok
+test_share_only_module_rejected (test_home_checks.EmbeddedTests.test_share_only_module_rejected) ... ok
+test_unembedded_whole_module_rejected (test_home_checks.EmbeddedTests.test_unembedded_whole_module_rejected) ... ok
+test_wrong_show_all_threshold_or_slice_rejected (test_home_checks.EmbeddedTests.test_wrong_show_all_threshold_or_slice_rejected) ... ok
+test_app_and_dmg_tickets_bound (test_home_checks.NotaryTests.test_app_and_dmg_tickets_bound) ... ok
+test_current_submitted_archive_binds_apple_job (test_home_checks.NotaryTests.test_current_submitted_archive_binds_apple_job) ... ok
+test_explicit_app_job_id_required_without_id_in_build_log (test_home_checks.NotaryTests.test_explicit_app_job_id_required_without_id_in_build_log) ... ok
+test_old_or_mismatched_cdhash_rejected (test_home_checks.NotaryTests.test_old_or_mismatched_cdhash_rejected) ... ok
+test_unaccepted_or_wrong_arch_rejected (test_home_checks.NotaryTests.test_unaccepted_or_wrong_arch_rejected) ... ok
+test_exact_accepted_source (test_home_checks.SourceTests.test_exact_accepted_source) ... ok
+test_same_ancestor_different_bytes_rejected (test_home_checks.SourceTests.test_same_ancestor_different_bytes_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.014s
+
+OK

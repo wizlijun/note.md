@@ -1,0 +1,16 @@
+[
+  {
+    "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source",
+    "head": "c391032e80d294c8e941b041e0987e8b9555923f",
+    "status": "",
+    "stash": "",
+    "origin": "https://github.com/wizlijun/note.md.git"
+  },
+  {
+    "path": "/Users/bruce/git/mdeditor-sumi-ime-host",
+    "head": "7437e6feddb0218c8bf42cc5b6cb17903d5954e5",
+    "status": "",
+    "stash": "",
+    "origin": "/Users/bruce/git/mdeditor"
+  }
+]

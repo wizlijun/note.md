@@ -1,0 +1,63 @@
+{
+  "commands": [
+    {
+      "command": [
+        "node",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "v23.10.0"
+    },
+    {
+      "command": [
+        "pnpm",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "11.7.0"
+    },
+    {
+      "command": [
+        "gh",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "gh version 2.87.3 (2026-02-23)\nhttps://github.com/cli/cli/releases/tag/v2.87.3"
+    },
+    {
+      "command": [
+        "/Users/bruce/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "rustc",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "rustc 1.99.0 (b940084d7 2026-09-28)"
+    },
+    {
+      "command": [
+        "/Users/bruce/.cargo/bin/rustup",
+        "run",
+        "1.99.0",
+        "cargo",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "cargo 1.99.0 (5f94df478 2026-08-27)"
+    },
+    {
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/notarytool",
+        "--version"
+      ],
+      "exitCode": 0,
+      "output": "1.1.4 (43)"
+    }
+  ],
+  "transportShim": {
+    "path": "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/transport-bin/xcrun",
+    "sha256": "4023dd8472bfcc54addf2e2312400ff3f060c06ab7392e462a89f2eff1a698b6",
+    "scope": "notarytool only; other xcrun commands delegate to system xcrun"
+  }
+}

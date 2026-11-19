@@ -1,0 +1,294 @@
+{
+  "compiledSlotBindings": [
+    {
+      "asset": "App-Idaii5aO.js",
+      "constant": "Ib",
+      "default": "pins:Array(Ib).fill(null)",
+      "value": 8
+    }
+  ],
+  "compiledCollapsedRows": [
+    {
+      "asset": "App-Idaii5aO.js",
+      "constant": "s",
+      "value": 3,
+      "binding": "const s=3,o=me(()=>[{kind:\"new\",title:p(\"homeContent.new\")",
+      "thresholdAndSliceUseConstant": true
+    }
+  ],
+  "compiledRoles": [
+    {
+      "role": "HomeApps-two-rows-combined",
+      "kind": "javascript",
+      "tokens": [
+        "home-apps",
+        "data-home-slot",
+        "homeApps.commonFeatures",
+        "homeApps.allApps",
+        "home-grid home-functions-grid",
+        "data-home-action",
+        "new-note",
+        "new-canvas",
+        "open-file",
+        "all-apps",
+        "home-context-menu menu-panel"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-Idaii5aO.js",
+          "sha256": "be3862bb4a90dc399fdc14ecdbaf23efbbd8368cc26265d3edbfc0fd0333c8e7",
+          "bytes": 1150596
+        }
+      ]
+    },
+    {
+      "role": "AppDirectory",
+      "kind": "javascript",
+      "tokens": [
+        "app-directory",
+        "data-target-slot",
+        "homeApps.directory",
+        "homeApps.choosePosition",
+        "declared-commands"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-Idaii5aO.js",
+          "sha256": "be3862bb4a90dc399fdc14ecdbaf23efbbd8368cc26265d3edbfc0fd0333c8e7",
+          "bytes": 1150596
+        }
+      ]
+    },
+    {
+      "role": "eight-slots-pins-model-store",
+      "kind": "javascript",
+      "tokens": [
+        "home-apps.json",
+        "Shortcut slot must be between 0 and 7",
+        "App is already pinned; use movePin",
+        "Auto app move requires its visible source slot",
+        "pins",
+        "snapshot"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-Idaii5aO.js",
+          "sha256": "be3862bb4a90dc399fdc14ecdbaf23efbbd8368cc26265d3edbfc0fd0333c8e7",
+          "bytes": 1150596
+        }
+      ]
+    },
+    {
+      "role": "document-preview-dismiss-show-all",
+      "kind": "javascript",
+      "tokens": [
+        "content-columns",
+        "content-preview",
+        "homeContent.new",
+        "homeContent.continue",
+        "homeContent.showAll",
+        "content-dismiss",
+        "home-content-list-"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-Idaii5aO.js",
+          "sha256": "be3862bb4a90dc399fdc14ecdbaf23efbbd8368cc26265d3edbfc0fd0333c8e7",
+          "bytes": 1150596
+        }
+      ]
+    },
+    {
+      "role": "home-content-state-and-menus",
+      "kind": "javascript",
+      "tokens": [
+        "home-content.json",
+        "home_content_catalog",
+        "update_latest_menu",
+        "update_recent_menu"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "store.svelte-Btju3VBx.js",
+          "sha256": "7feee5c9d5f5b817910f577fa2b530cac4abdacf241da6613894f1693a06da6c",
+          "bytes": 9256
+        }
+      ]
+    },
+    {
+      "role": "Vault-collapsed-details",
+      "kind": "javascript",
+      "tokens": [
+        "vault-name",
+        "aria-expanded",
+        "vaultOverview.showDetails",
+        "vaultOverview.hideDetails",
+        "path-row",
+        "vaultOverview.documents",
+        "vaultOverview.contentSize"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-Idaii5aO.js",
+          "sha256": "be3862bb4a90dc399fdc14ecdbaf23efbbd8368cc26265d3edbfc0fd0333c8e7",
+          "bytes": 1150596
+        }
+      ]
+    },
+    {
+      "role": "home-static-AI-and-footer",
+      "kind": "javascript",
+      "tokens": [
+        "home-ai",
+        "homeAi.title",
+        "homeAi.empty",
+        "home-footer",
+        "homeApps.allSettings"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-Idaii5aO.js",
+          "sha256": "be3862bb4a90dc399fdc14ecdbaf23efbbd8368cc26265d3edbfc0fd0333c8e7",
+          "bytes": 1150596
+        }
+      ]
+    },
+    {
+      "role": "input-blocked-feedback",
+      "kind": "javascript",
+      "tokens": [
+        "editorInput.richComposing",
+        "editorInput.sourceComposing",
+        "editorInput.sourcePending",
+        "editorInput.annotationPending",
+        "[file-input] operation blocked:"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "sotvault.svelte-pZClTYYI.js",
+          "sha256": "081e6987e239877aa6f3fe2423d9fa12e2155525703c3f9ca91cd9de28604999",
+          "bytes": 282413
+        }
+      ]
+    },
+    {
+      "role": "shared-readonly-open-in-app",
+      "kind": "javascript",
+      "tokens": [
+        "notemd://share/open?u="
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-Idaii5aO.js",
+          "sha256": "be3862bb4a90dc399fdc14ecdbaf23efbbd8368cc26265d3edbfc0fd0333c8e7",
+          "bytes": 1150596
+        }
+      ]
+    },
+    {
+      "role": "input-blocked-session",
+      "kind": "javascript",
+      "tokens": [
+        "rich-composing",
+        "source-pending",
+        "annotation-pending",
+        "composition-interrupted",
+        "FileInputBlockedError"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "file-input-error-O0hDlnWJ.js",
+          "sha256": "936dc0891513bb15b06dec5f336e73899767c2934984d36e37e895b95cc8d90d",
+          "bytes": 1050
+        }
+      ]
+    },
+    {
+      "role": "HomeApps-dark-and-responsive",
+      "kind": "css",
+      "tokens": [
+        ".home-grid.home-functions-grid",
+        "repeat(6,minmax(0,1fr))",
+        "prefers-color-scheme:dark",
+        "#243744",
+        "#203c37",
+        "#3d3222"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-D_V46b1C.css",
+          "sha256": "35764138a8a4f3604f9225acf69e05f0ac4316f2d33c34eb6dc448e147709f6c",
+          "bytes": 95907
+        }
+      ]
+    },
+    {
+      "role": "AppDirectory-layout",
+      "kind": "css",
+      "tokens": [
+        ".app-directory",
+        ".position-grid",
+        ".directory-list"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-D_V46b1C.css",
+          "sha256": "35764138a8a4f3604f9225acf69e05f0ac4316f2d33c34eb6dc448e147709f6c",
+          "bytes": 95907
+        }
+      ]
+    },
+    {
+      "role": "Vault-name-and-metrics",
+      "kind": "css",
+      "tokens": [
+        ".vault-name",
+        ".metrics"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-D_V46b1C.css",
+          "sha256": "35764138a8a4f3604f9225acf69e05f0ac4316f2d33c34eb6dc448e147709f6c",
+          "bytes": 95907
+        }
+      ]
+    },
+    {
+      "role": "documents-previews-and-columns",
+      "kind": "css",
+      "tokens": [
+        ".content-columns",
+        ".content-preview",
+        ".content-dismiss",
+        "line-clamp:2"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-D_V46b1C.css",
+          "sha256": "35764138a8a4f3604f9225acf69e05f0ac4316f2d33c34eb6dc448e147709f6c",
+          "bytes": 95907
+        }
+      ]
+    },
+    {
+      "role": "home-AI-and-status-footer",
+      "kind": "css",
+      "tokens": [
+        ".home-ai",
+        ".home-footer",
+        ".ai-empty"
+      ],
+      "wholeEmbeddedAssets": [
+        {
+          "asset": "App-D_V46b1C.css",
+          "sha256": "35764138a8a4f3604f9225acf69e05f0ac4316f2d33c34eb6dc448e147709f6c",
+          "bytes": 95907
+        }
+      ]
+    }
+  ],
+  "proof": "Frozen implementation files are byte-identical to the accepted source. Every complete witness module/CSS is byte-hashed and bound to a complete Brotli resource present in the actual signed Mach-O, with feature-token witnesses. Source-to-resource provenance relies on the recorded clean build and release log; these checks are not an independent reproducible rebuild or GUI/runtime proof.",
+  "status": "PASS",
+  "boundary": "DIST PRECHECK ONLY: supplied whole-dist SHA set to check compiled role location and constant forms. Actual signed Mach-O extraction remains required.",
+  "checkedAt": "2026-11-19T10:43:22.677384+00:00"
+}

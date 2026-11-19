@@ -1,0 +1,9 @@
+{
+  "stage": "signed DMG submitted before stapling",
+  "path": "/tmp/note.md-6.1119.2-aarch64.dmg",
+  "bytes": 15910509,
+  "sha256": "90aab056b6a07dfcb5aeec0c083291399c2c1d9a68214fb4757cd3f0b3b53a68",
+  "captured_at": "2026-11-19T10:50:56.908612+00:00",
+  "submission_id": "65c0bb68-8c7b-4c9e-ab41-3e15e2add859",
+  "submissionIdSource": "Exact current DMG submission ID printed by unmodified release.sh/notarytool in release-build.log"
+}

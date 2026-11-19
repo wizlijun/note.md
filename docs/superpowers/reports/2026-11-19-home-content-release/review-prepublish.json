@@ -1,0 +1,118 @@
+{
+  "status": "PASS_LIMITED_SOURCE_AND_PROVENANCE_REVIEW",
+  "capturedAt": "2026-11-19T11:02:42.431383+00:00",
+  "tag": "v6.1119.2",
+  "releaseCommit": "8b811a5a31f7ba288063705bc5386b09b6f7261f",
+  "testedProductSource": "f1625169fe82c69c7955b0cb00677f96488cb986",
+  "sourceClean": true,
+  "allTrackedFilesRehashed": 5532,
+  "allDistFilesRehashed": 209,
+  "manifestHashMatches": true,
+  "frozenBuildLogHashMatches": true,
+  "versionOnlyCommitFiles": [
+    "package.json",
+    "src-tauri/tauri.conf.json",
+    "src-tauri/Cargo.toml",
+    "src-tauri/Cargo.lock",
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md"
+  ],
+  "localStagedHostAssetsRehashed": [
+    "note.md-6.1119.2-aarch64.dmg",
+    "note.md-aarch64.app.tar.gz",
+    "note.md-aarch64.app.tar.gz.sig",
+    "latest.json"
+  ],
+  "gatesReconciled": {
+    "frontendFiles": 452,
+    "frontendTests": 6087,
+    "svelteErrors": 0,
+    "existingWarnings": 30,
+    "protocol": "consistent",
+    "dependencyAudit": {
+      "low": 1,
+      "moderate": 4,
+      "high": 0,
+      "critical": 0
+    },
+    "canvasRust": {
+      "library": 25,
+      "integration": 2,
+      "total": 27
+    },
+    "mobileConfigRust": 3,
+    "homeContentNativeRust": 11,
+    "originalReleaseExit": 0
+  },
+  "notaryPreStapleBindings": {
+    "app": {
+      "jobId": "4ff56aea-966d-4222-81d8-331d8f4fb929",
+      "status": "Accepted",
+      "preStapleArchiveShaMatches": true,
+      "archiveFilename": "note.md.zip"
+    },
+    "dmg": {
+      "jobId": "65c0bb68-8c7b-4c9e-ab41-3e15e2add859",
+      "status": "Accepted",
+      "preStapleArchiveShaMatches": true,
+      "archiveFilename": "note.md-6.1119.2-aarch64.dmg"
+    }
+  },
+  "environment": {
+    "controlledEnvDirectoryStillEmpty": true,
+    "rustToolchain": "1.99.0",
+    "toolCommandsExitZero": 6,
+    "transportShimShaMatches": true,
+    "morayaDistFilesRehashed": 67,
+    "morayaMainAndBuildDistEqual": true
+  },
+  "preservation": {
+    "allWorktrees": [
+      {
+        "path": "/Users/bruce/git/mdeditor",
+        "statusUnchanged": true
+      },
+      {
+        "path": "/Users/bruce/git/mdeditor/.worktrees/home-apps",
+        "statusUnchanged": true
+      },
+      {
+        "path": "/Users/bruce/git/mdeditor/.worktrees/home-content",
+        "statusUnchanged": true
+      },
+      {
+        "path": "/Users/bruce/git/mdeditor/.worktrees/safari-home",
+        "statusUnchanged": true
+      }
+    ],
+    "allLocalBranchesMergedAndPatchEquivalent": true,
+    "originalDirtyRustFilesRetained": true,
+    "outputConceptFilesRetained": 3,
+    "stashRetainedExactCommit": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c"
+  },
+  "draftMetadata": {
+    "tag": "v6.1119.2",
+    "isDraft": true,
+    "isPrerelease": false,
+    "exactSixAssetNames": [
+      "Fcitx5-for-Sumi-0.5.0.15-arm64.pkg",
+      "fcitx5-companion.json",
+      "latest.json",
+      "note.md-6.1119.2-aarch64.dmg",
+      "note.md-aarch64.app.tar.gz",
+      "note.md-aarch64.app.tar.gz.sig"
+    ]
+  },
+  "blockingFindingsWithinReviewedScope": [],
+  "previousFindingResolution": "Current DMG submission_id is now recorded and matches original build log and current Apple Accepted log. Tools/transport shim hashes are recorded; local Moraya dist rehashed and equal.",
+  "mandatoryRemainingBeforePublication": [
+    "Complete download of all six exact draft assets",
+    "verify-host.py actual signed artifact/resource/archive/minisign/Gatekeeper/stapler/Apple-CDHash/companion verification",
+    "Existing release-publish.sh mac-arm64-only gates"
+  ],
+  "mandatoryRemainingAfterPublication": [
+    "Full anonymous six-asset SHA256/minisign readback",
+    "Actual configured latest updater endpoint bytes and public tag/asset identity stability"
+  ],
+  "evidenceBoundary": "Limited independent rehash of clean frozen source, captured inputs/dist, local staged artifacts, pre-staple archive binding, and preserved unrelated files. Does not pass actual downloaded artifact verification, run App/native GUI, claim publication, or provide an independent reproducible build."
+}

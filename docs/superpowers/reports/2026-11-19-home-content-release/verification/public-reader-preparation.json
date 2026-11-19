@@ -1,0 +1,39 @@
+{
+  "status": "PREPARED_NOT_RUN",
+  "tag": "v6.1119.2",
+  "script": "tasks/release-2026-11-19-evidence/verification/verify-public-host-full.py",
+  "source": "Copied prior verified public reader, version constants updated; added fail-closed Python optimization guard.",
+  "inputSchema": {
+    "producer": "verification/verify-host.py",
+    "output": "<stage>/host-assets.json",
+    "root": [
+      "sourceCommit",
+      "version",
+      "assets"
+    ],
+    "asset": [
+      "name",
+      "path",
+      "size",
+      "sha256"
+    ],
+    "exactAssets": 6
+  },
+  "schemaCompatible": true,
+  "validation": "AST parse and 10 offline fixture tests passed. No public script execution, network readback, or publication performed.",
+  "invocationAfterPublication": "python3 tasks/release-2026-11-19-evidence/verification/verify-public-host-full.py --source <40-char-v6.1119.2-release-commit> --repository /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source --assets <verified-stage>/host-assets.json --transport browser",
+  "checks": [
+    "Anonymous six complete files including every range and exact SHA256",
+    "Unchanged GitHub release asset IDs/state/digest before and after",
+    "Remote tag resolves exact frozen source",
+    "Minisign entire downloaded updater archive verification",
+    "Exact approved companion metadata/package",
+    "Actual configured latest updater endpoint equals frozen latest.json"
+  ],
+  "fixtureTests": {
+    "count": 10,
+    "status": "PASS",
+    "log": "public-reader-fixture-tests.log",
+    "sha256": "d1af247194900b6ddd2505a832eaa4e4f2c7913a7b1d237c77a9c829b7a8d2d0"
+  }
+}

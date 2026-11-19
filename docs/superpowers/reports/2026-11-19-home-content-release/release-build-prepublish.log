@@ -1,0 +1,2143 @@
+[1;34m▸[0m pre-flight
+{"preserved":[],"status":""}
+{"packagePath":"/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/notemd-fcitx5-release.gG3YN7MZl4/Fcitx5-for-Sumi-0.5.0.15-arm64.pkg","metadataPath":"/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/notemd-fcitx5-release.gG3YN7MZl4/fcitx5-companion.json","sha256":"f75d72fa51efa50d09412b956453a0f36f59ced8a47f501bab148867f10c4299"}
+    signing as: Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)
+    cert kind:  Developer ID Application
+    notarize:   yes
+[1;34m▸[0m running tests
+
+ RUN  v4.1.5 /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source
+
+6:37:15 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:37:4 This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:15 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:39:4 This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:15 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:41:4 This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:15 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:47:19 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:15 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:48:20 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:24 PM [vite-plugin-svelte] src/components/outline/RefTreeNode.svelte:23:25 This reference only captures the initial value of `defaultCollapsed`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:24 PM [vite-plugin-svelte] src/components/outline/RefTreeNode.svelte:80:6 noninteractive element cannot have nonnegative tabIndex value
+https://svelte.dev/e/a11y_no_noninteractive_tabindex
+AggregateError: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1714:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 3000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3000
+    }
+  ]
+}
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": 
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+AggregateError: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1714:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 3000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3000
+    }
+  ]
+}
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": 
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+6:37:28 PM [vite-plugin-svelte] src/components/BaseView.svelte:174:14 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+6:37:28 PM [vite-plugin-svelte] src/components/BaseView.svelte:174:14 `<span>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+6:37:28 PM [vite-plugin-svelte] src/components/BaseColumnMenu.svelte:24:27 This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:28 PM [vite-plugin-svelte] src/components/BaseColumnMenu.svelte:24:35 This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:28 PM [vite-plugin-svelte] src/components/BaseAddColumnMenu.svelte:16:27 This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:28 PM [vite-plugin-svelte] src/components/BaseAddColumnMenu.svelte:16:35 This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+6:37:28 PM [vite-plugin-svelte] src/components/outline/OutlineEditor.svelte:921:0 `<div>` with a contextmenu handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+6:37:28 PM [vite-plugin-svelte] src/components/outline/OutlineEditor.svelte:983:2 Elements with the 'tree' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+6:37:29 PM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:311:2 Elements with the 'treeitem' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+6:37:29 PM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:336:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+6:37:29 PM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:336:4 `<span>` with a dragstart or click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+AggregateError: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1714:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 3000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3000
+    }
+  ]
+}
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": 
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+AggregateError: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1714:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 3000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3000
+    }
+  ]
+}
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": 
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+AggregateError: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1714:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 3000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3000
+    }
+  ]
+}
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": 
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+AggregateError: 
+    at internalConnectMultiple (node:net:1139:18)
+    at afterConnectMultiple (node:net:1714:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 3000
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:3000
+        at createConnectionError (node:net:1677:14)
+        at afterConnectMultiple (node:net:1707:16) {
+      errno: -61,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 3000
+    }
+  ]
+}
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": 
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+DOMException [AbortError]: The operation was aborted.
+    at Fetch.onAsyncTaskManagerAbort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:546:23)
+    at Object.<anonymous> (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:416:101)
+    at AsyncTaskManager.abortAll (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:292:30)
+    at AsyncTaskManager.abort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:52:21)
+    at DetachedBrowserFrame.abort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/browser/detached-browser/DetachedBrowserFrame.js:112:58)
+    at DetachedWindowAPI.abort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/window/DetachedWindowAPI.js:51:35)
+    at teardownWindow (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/index.DC7d2Pf8.js:331:22)
+    at Object.teardown (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/index.DC7d2Pf8.js:392:10)
+    at file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/base.RR7zL1h0.js:168:65
+    at Traces.$ (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/traces.DT5aQ62U.js:142:27)
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": The operation was aborted.
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+6:37:51 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:273:2 Unused CSS selector ".harness"
+https://svelte.dev/e/css_unused_selector
+6:37:51 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:276:2 Unused CSS selector ".pick"
+https://svelte.dev/e/css_unused_selector
+6:37:51 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:288:2 Unused CSS selector ".pick:disabled"
+https://svelte.dev/e/css_unused_selector
+6:37:51 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:289:2 Unused CSS selector ".one"
+https://svelte.dev/e/css_unused_selector
+6:37:52 PM [vite-plugin-svelte] src/components/TabBar.svelte:187:12 Elements with the 'button' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+6:37:52 PM [vite-plugin-svelte] src/components/TabBar.svelte:187:12 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+6:38:06 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+6:38:06 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+DOMException [AbortError]: The operation was aborted.
+    at Fetch.onAsyncTaskManagerAbort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:546:23)
+    at Object.<anonymous> (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:416:101)
+    at AsyncTaskManager.abortAll (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:292:30)
+    at AsyncTaskManager.abort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:52:21)
+    at DetachedBrowserFrame.abort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/browser/detached-browser/DetachedBrowserFrame.js:112:58)
+    at DetachedWindowAPI.abort (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/window/DetachedWindowAPI.js:51:35)
+    at teardownWindow (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/index.DC7d2Pf8.js:331:22)
+    at Object.teardown (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/index.DC7d2Pf8.js:392:10)
+    at file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/base.RR7zL1h0.js:168:65
+    at Traces.$ (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/vitest@4.1.5_@types+node@22.20.1_happy-dom@20.9.0_jsdom@25.0.1_vite@6.4.2_@types+node@22.20.1_yaml@2.9.0_/node_modules/vitest/dist/chunks/traces.DT5aQ62U.js:142:27)
+DOMException [NetworkError]: Failed to execute "fetch()" on "Window" with URL "http://localhost:3000/editor-kit-v1.css": The operation was aborted.
+    at Fetch.onError (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:540:21)
+    at ClientRequest.emit (node:events:507:28)
+    at emitErrorEvent (node:_http_client:104:11)
+    at Socket.socketErrorListener (node:_http_client:518:5)
+    at Socket.emit (node:events:507:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)
+Error: Failed to execute 'startTask()' on 'AsyncTaskManager': The asynchronous task manager has been destroyed. This error can be thrown if scripts continue to run while a browser frame is closed.
+    at AsyncTaskManager.startTask (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/async-task-manager/AsyncTaskManager.js:153:19)
+    at file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:416:80
+    at new Promise (<anonymous>)
+    at Fetch.sendRequest (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:415:16)
+    at Fetch.send (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/fetch/Fetch.js:188:27)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at Function.navigate (file:///Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/happy-dom@20.9.0/node_modules/happy-dom/lib/browser/utilities/BrowserFrameNavigator.js:202:24)
+
+ Test Files  452 passed (452)
+      Tests  6087 passed (6087)
+   Start at  18:35:55
+   Duration  149.41s (transform 10.81s, setup 0ms, import 31.63s, tests 217.14s, environment 17.67s)
+
+Loading svelte-check in workspace: /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source
+Getting Svelte diagnostics...
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/EditorContextMenu.svelte:37:5
+Warn: This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+  const groups = getMenuModel({
+    hasSelection,
+    table: untrack(() => actions.canRun('table-align-center')),
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/EditorContextMenu.svelte:39:5
+Warn: This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+    table: untrack(() => actions.canRun('table-align-center')),
+    image,
+    resource: untrack(() => resource),
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/EditorContextMenu.svelte:41:5
+Warn: This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+    resource: untrack(() => resource),
+    readOnly,
+    traceInstalled: untrack(() => traceInstalled),
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/EditorContextMenu.svelte:47:20
+Warn: This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+  let menuEl: HTMLDivElement | undefined = $state()
+  let top = $state(position.y)
+  let left = $state(position.x)
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/EditorContextMenu.svelte:48:21
+Warn: This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+  let top = $state(position.y)
+  let left = $state(position.x)
+  let openSubId = $state<string | null>(null)
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineNode.svelte:311:3
+Warn: Elements with the 'treeitem' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus (svelte)
+<div class="node" class:has-guide={showChildren && kids.length > 0} style="--depth: {depth}">
+  <div
+    class="row"
+    class:auto={node.source !== 'manual'}
+    class:drop-sibling={dropMode === 'sibling'}
+    class:drop-child={dropMode === 'child'}
+    class:selected
+    data-node-id={node.id}
+    role="treeitem"
+    aria-selected={editing || selected}
+    ondragover={onDragOver}
+    ondragleave={() => (dropMode = null)}
+    ondrop={onDrop}
+    oncontextmenu={(e) => { if (readonly) return; e.preventDefault(); onContextMenu(e, node) }}
+  >
+    {#if kids.length > 0}
+      <button class="tri" class:closed={isCollapsed}
+        onclick={() => {
+          node.collapsed = !node.collapsed
+          // Touching the fold makes it the user's decision, not the view's
+          // default — from here on it belongs in the file.
+          outline.autoCollapsed.delete(node.id)
+          if (onCollapse) { if (!readonly) bump(); onCollapse(node) }
+          else { bump(); markDirty() }
+        }}>▾</button>
+    {/if}
+    <span
+      class="bullet"
+      class:has-kids={kids.length > 0}
+      class:closed={kids.length > 0 && isCollapsed}
+      class:src-toc={node.source === 'toc'}
+      class:src-hl={node.source === 'highlight'}
+      class:src-wl={node.source === 'wikilink'}
+      class:src-anno={node.source === 'annotation'}
+      class:src-note={noteLike(node.source)}
+      class:src-answer={node.source === 'answer'}
+      class:jumpable={node.anchorLine != null}
+      draggable={!readonly && node.source === 'manual'}
+      ondragstart={onDragStart}
+      onclick={onBulletClick}
+    ></span>
+    {#if editing}
+      <textarea
+        bind:this={textareaEl}
+        class="content edit"
+        class:hl={node.source === 'highlight' || markLike}
+        class:src-toc={node.source === 'toc'}
+        rows="1"
+        value={content}
+        onbeforeinput={(e) => { if (!editable) e.preventDefault() }}
+        oncompositionstart={() => ime.start()}
+        oncompositionend={() => ime.end()}
+        onblur={(e) => { ime.reset(); commitEdit((e.currentTarget as HTMLTextAreaElement).value) }}
+        onkeydown={onKeydown}
+        onpaste={onPaste}
+        oninput={(e) => {
+          const el = e.currentTarget as HTMLTextAreaElement
+          el.style.height = 'auto'
+          el.style.height = el.scrollHeight + 'px'
+          onEditorInput(node, el.value, el.selectionStart, el)
+        }}
+      ></textarea>
+    {:else}
+      <span class="content" class:hl={node.source === 'highlight' || markLike} class:src-toc={node.source === 'toc'}
+        class:answer-summary={answerSummary != null}
+        class:jump-src={!readonly && !editable && node.anchorLine != null}
+        onclick={readonly ? () => onActivate?.(node) : onContentClick} role="button" tabindex="0"
+        onkeydown={(e) => { if (e.key === 'Enter') { if (readonly) onActivate?.(node); else if (!editable) { if (node.anchorLine != null) onJump(node) } else startEdit() } }}>
+        <!-- 空内容：塞零宽空格保证有行盒，鼠标可命中进入编辑 -->
+        {#if answerSummary != null}{answerSummary}{:else if content === ''}{'​'}{:else}<InlineRender {content} onPageClick={onPageClick} />{/if}
+      </span>
+    {/if}
+    {#if !readonly && node.source === 'question'}
+      <button class="qchip"
+        class:st-answered={qStatus === 'answered'}
+        class:st-closed={qStatus === 'closed'}
+        title={t('outline.questionChip')}
+        onclick={(e) => { e.stopPropagation(); onChipClick() }}
+      >{qStatus ?? 'open'}</button>
+    {/if}
+  </div>
+  {#if showChildren}
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineNode.svelte:336:5
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+    {/if}
+    <span
+      class="bullet"
+      class:has-kids={kids.length > 0}
+      class:closed={kids.length > 0 && isCollapsed}
+      class:src-toc={node.source === 'toc'}
+      class:src-hl={node.source === 'highlight'}
+      class:src-wl={node.source === 'wikilink'}
+      class:src-anno={node.source === 'annotation'}
+      class:src-note={noteLike(node.source)}
+      class:src-answer={node.source === 'answer'}
+      class:jumpable={node.anchorLine != null}
+      draggable={!readonly && node.source === 'manual'}
+      ondragstart={onDragStart}
+      onclick={onBulletClick}
+    ></span>
+    {#if editing}
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineNode.svelte:336:5
+Warn: `<span>` with a dragstart or click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+    {/if}
+    <span
+      class="bullet"
+      class:has-kids={kids.length > 0}
+      class:closed={kids.length > 0 && isCollapsed}
+      class:src-toc={node.source === 'toc'}
+      class:src-hl={node.source === 'highlight'}
+      class:src-wl={node.source === 'wikilink'}
+      class:src-anno={node.source === 'annotation'}
+      class:src-note={noteLike(node.source)}
+      class:src-answer={node.source === 'answer'}
+      class:jumpable={node.anchorLine != null}
+      draggable={!readonly && node.source === 'manual'}
+      ondragstart={onDragStart}
+      onclick={onBulletClick}
+    ></span>
+    {#if editing}
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/RefTreeNode.svelte:23:26
+Warn: This reference only captures the initial value of `defaultCollapsed`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+
+  let collapsed = $state(defaultCollapsed)
+  const hasChildren = $derived(node.children.length > 0)
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/RefTreeNode.svelte:80:7
+Warn: noninteractive element cannot have nonnegative tabIndex value
+https://svelte.dev/e/a11y_no_noninteractive_tabindex (svelte)
+      <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->
+      <span
+        class="text" class:editable
+        role={editable ? 'button' : undefined}
+        tabindex={editable ? 0 : undefined}
+        onclick={startEdit}
+        onkeydown={(e) => { if (editable && e.key === 'Enter') { e.preventDefault(); startEdit() } }}
+      ><InlineRender content={node.text} {onPageClick} /></span>
+    {/if}
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte:921:1
+Warn: `<div>` with a contextmenu handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+
+<div class="outline-editor" class:embedded oncontextmenu={(e) => { if (!embedded) e.preventDefault() }}
+  style={embedded ? '' : `--outline-font-family: ${typo.family}; --outline-font-size: ${typo.size}; --outline-line-height: ${typo.line};${typo.fg ? ` color: ${typo.fg};` : ''}${typo.bg ? ` background: ${typo.bg};` : ''}`}>
+  <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+    <div class="moraya-editor"></div>
+  </div>
+  {#if !embedded}
+  <div class="toolbar">
+    <span class="doc-title">{pageNameOf(notePath)}</span>
+    <button class="hbtn" class:on={searchOpen} title={t('outline.search')} aria-label={t('outline.search')} onclick={toggleSearch}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+    </button>
+    <button class="hbtn" title={t('outline.regenerate')} aria-label={t('outline.regenerate')} onclick={onRegenerate}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    </button>
+    <button class="hbtn" class:dirty={saveDirty} title={t('outline.save')} aria-label={t('outline.save')} disabled={!saveDirty} onclick={() => void onSave()}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+        <polyline points="17 21 17 13 7 13 7 21" />
+        <polyline points="7 3 7 8 15 8" />
+      </svg>
+    </button>
+  </div>
+  {/if}
+  {#if outline.externalConflict}
+    <div class="conflict-banner" role="alert">
+      <span class="conflict-msg">{t('outline.externalChanged')}</span>
+      <button class="conflict-btn" onclick={() => void reloadRemote()}>{t('externalChange.reload')}</button>
+      <button class="conflict-btn" onclick={() => void overwriteLocal()}>{t('externalChange.overwrite')}</button>
+    </div>
+  {/if}
+  {#if searchOpen}
+    <div class="search-row">
+      <input
+        bind:this={searchInputEl}
+        class="search-input"
+        type="text"
+        placeholder={t('outline.searchPlaceholder')}
+        bind:value={searchQuery}
+        onkeydown={onSearchKeydown}
+      />
+      {#if searchQuery}
+        <button class="hbtn" title={t('common.close')} aria-label={t('common.close')} onclick={() => (searchQuery = '')}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      {/if}
+    </div>
+  {/if}
+  {#if effectiveFocus && !focusControlled && outline.tree.nodes.get(effectiveFocus)}
+    <!-- 非受控就地 zoom 自带面包屑;受控(daily 聚焦视图)由宿主渲染带日期的面包屑。 -->
+    <OutlineBreadcrumb tree={outline.tree} focusRootId={effectiveFocus} rootLabel={pageNameOf(notePath)} onCrumb={focusNode} />
+  {/if}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="body" role="tree" bind:this={bodyEl} onclick={onBodyClick}
+    onpointerdown={onBandDown} onpointermove={onBandMove} onpointerup={onBandUp}>
+    {#each visibleRoots as node (node.id)}
+      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {onCollapse} onFocus={(n) => focusNode(n.id)} forceExpand={effectiveFocus === node.id} />
+    {/each}
+    {#if visibleRoots.length === 0}
+      <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
+    {/if}
+    {#if !visibleIds && showLinkedRefs}
+      <!-- Rendered inside the scroll body so it reads as one continuous outline.
+           Stop pointer/click from bubbling to the outline's band-select / body-click.
+           Hidden in the Daily Notes feed; shown in the single-page view. -->
+      <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+      <div class="lr-wrap" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
+        <LinkedReferences page={pageNameOf(notePath)} excludeFile={notePath} />
+      </div>
+    {/if}
+  </div>
+  {#if menu.kind === 'slash'}
+    <SlashMenu items={slashItems} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickSlash} />
+  {:else if menu.kind === 'link'}
+    <LinkAutocomplete pages={linkPages} selected={menu.selected} x={menu.x} y={menu.y} onPick={pickPage} />
+  {/if}
+  {#if ctxMenu}
+    <NodeContextMenu node={ctxMenu.node} x={ctxMenu.x} y={ctxMenu.y} onAction={onCtxAction} onClose={() => (ctxMenu = null)} />
+  {/if}
+  {#if band}
+    {@const r = bandRect(band)}
+    <div class="band" style="left:{r.left}px; top:{r.top}px; width:{r.width}px; height:{r.height}px"></div>
+  {/if}
+</div>
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte:983:3
+Warn: Elements with the 'tree' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus (svelte)
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="body" role="tree" bind:this={bodyEl} onclick={onBodyClick}
+    onpointerdown={onBandDown} onpointermove={onBandMove} onpointerup={onBandUp}>
+    {#each visibleRoots as node (node.id)}
+      <OutlineNode {node} depth={0} {resolved} {onJump} {onPageClick} {onEditorInput} {onContextMenu} {onDragOp} {visibleIds} {onCollapse} onFocus={(n) => focusNode(n.id)} forceExpand={effectiveFocus === node.id} />
+    {/each}
+    {#if visibleRoots.length === 0}
+      <p class="empty">{visibleIds ? t('outline.noSearchResults') : t('outline.empty')}</p>
+    {/if}
+    {#if !visibleIds && showLinkedRefs}
+      <!-- Rendered inside the scroll body so it reads as one continuous outline.
+           Stop pointer/click from bubbling to the outline's band-select / body-click.
+           Hidden in the Daily Notes feed; shown in the single-page view. -->
+      <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+      <div class="lr-wrap" onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()}>
+        <LinkedReferences page={pageNameOf(notePath)} excludeFile={notePath} />
+      </div>
+    {/if}
+  </div>
+  {#if menu.kind === 'slash'}
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyDay.svelte:356:3
+Warn: Unused CSS selector ".empty-day"
+https://svelte.dev/e/css_unused_selector (svelte)
+  }
+  .empty-day {
+    opacity: 0.45;
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/daily-notes-app.svelte:252:32
+Warn: `<h1>` element should contain text
+https://svelte.dev/e/a11y_missing_content (svelte)
+  <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+    <div class="moraya-editor"><h1></h1><hr /></div>
+  </div>
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/side-panel/SearchPanel.svelte:558:27
+Warn: Also define the standard property 'line-clamp' for compatibility (css)
+    font-size: 12px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/AgentWorkspace.svelte:273:3
+Warn: Unused CSS selector ".harness"
+https://svelte.dev/e/css_unused_selector (svelte)
+  .copy-context:disabled { opacity: 0.3; cursor: default; }
+  .harness { display: flex; margin: 0 0 4px; }
+  /* select inherits neither font-size nor family — declare both, or the row
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/AgentWorkspace.svelte:276:3
+Warn: Unused CSS selector ".pick"
+https://svelte.dev/e/css_unused_selector (svelte)
+     drifts at larger UI font sizes. */
+  .pick {
+    font: inherit;
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/AgentWorkspace.svelte:288:3
+Warn: Unused CSS selector ".pick:disabled"
+https://svelte.dev/e/css_unused_selector (svelte)
+  }
+  .pick:disabled { cursor: default; opacity: 0.45; }
+  .one {
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/AgentWorkspace.svelte:289:3
+Warn: Unused CSS selector ".one"
+https://svelte.dev/e/css_unused_selector (svelte)
+  .pick:disabled { cursor: default; opacity: 0.45; }
+  .one {
+    font-size: 11px;
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/TabBar.svelte:187:13
+Warn: Elements with the 'button' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus (svelte)
+            {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
+            <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+          </button>
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/TabBar.svelte:187:13
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+            {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
+            <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+          </button>
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseColumnMenu.svelte:24:28
+Warn: This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+  let el = $state<HTMLDivElement | null>(null)
+  let pos = $state({ left: x, top: y })
+  // Keep the panel fully on screen — shifts left so the right edge stays inside
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseColumnMenu.svelte:24:36
+Warn: This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+  let el = $state<HTMLDivElement | null>(null)
+  let pos = $state({ left: x, top: y })
+  // Keep the panel fully on screen — shifts left so the right edge stays inside
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseAddColumnMenu.svelte:16:28
+Warn: This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+  let el = $state<HTMLDivElement | null>(null)
+  let pos = $state({ left: x, top: y })
+  // Keep the panel fully on screen (right-aligns near the viewport's right edge).
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseAddColumnMenu.svelte:16:36
+Warn: This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+  let el = $state<HTMLDivElement | null>(null)
+  let pos = $state({ left: x, top: y })
+  // Keep the panel fully on screen (right-aligns near the viewport's right edge).
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseView.svelte:174:15
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+            >
+              <span class="th-label" onclick={() => toggleSort(col)}>
+                {label(col)}
+                {#if clickSort?.property === col}<span class="sort-arrow">{clickSort.direction === 'ASC' ? '▲' : '▼'}</span>{/if}
+              </span>
+              {#if editable}
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseView.svelte:174:15
+Warn: `<span>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions (svelte)
+            >
+              <span class="th-label" onclick={() => toggleSort(col)}>
+                {label(col)}
+                {#if clickSort?.property === col}<span class="sort-arrow">{clickSort.direction === 'ASC' ? '▲' : '▼'}</span>{/if}
+              </span>
+              {#if editable}
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/UpdateDialog.svelte:55:5
+Warn: Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus (svelte)
+  <div class="overlay" role="presentation" onclick={close}>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="updater-title"
+         onclick={(e) => e.stopPropagation()}>
+
+      {#if updater.state === 'checking'}
+        <h2 id="updater-title">{t('updateDialog.checking')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        <div class="progress-wrap">
+          <div class="progress">
+            <div class="bar indeterminate" style:width="30%"></div>
+          </div>
+        </div>
+        <footer>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
+        </footer>
+
+      {:else if updater.state === 'available'}
+        <h2 id="updater-title">{t('updateDialog.available', { version: updater.latestVersion ?? '' })}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        {#if desktopCapabilities.value?.distributionChannel === 'package-manager'}
+          <p class="meta">{t('settings.update.packageManager')}</p>
+        {/if}
+        {#if updater.notes}
+          <div class="notes">
+            <h3>{t('updateDialog.whatsNew')}</h3>
+            <pre>{updater.notes}</pre>
+          </div>
+        {:else}
+          <p class="meta">{t('updateDialog.noNotes')}</p>
+        {/if}
+        <footer>
+          <button class="ghost" onclick={onSkip}>{t('updateDialog.skip')}</button>
+          <button class="ghost" onclick={close}>{t('updateDialog.later')}</button>
+          <button class="primary" onclick={onUpdateNow}>{desktopCapabilities.value?.distributionChannel === 'package-manager'
+            ? t('settings.update.viewDownloads', { version: updater.latestVersion ?? '' })
+            : t('updateDialog.updateNow')}</button>
+        </footer>
+
+      {:else if updater.state === 'downloading'}
+        <h2 id="updater-title">{t('updateDialog.downloading', { version: updater.latestVersion ?? '' })}</h2>
+        <div class="progress-wrap">
+          <div class="progress">
+            <div class="bar" style:width={percent !== null ? `${percent}%` : '30%'} class:indeterminate={percent === null}></div>
+          </div>
+          <p class="progress-text">
+            {#if percent !== null && updater.contentLength}
+              {formatBytes(updater.downloaded)} / {formatBytes(updater.contentLength)} ({percent}%)
+            {:else}
+              {formatBytes(updater.downloaded)}
+            {/if}
+          </p>
+        </div>
+        <footer>
+          <button class="ghost" onclick={close}>{t('updateDialog.runInBackground')}</button>
+        </footer>
+
+      {:else if updater.state === 'ready'}
+        <h2 id="updater-title">{t('updateDialog.ready')}</h2>
+        <p>{t('updateDialog.readyBody', { version: updater.latestVersion ?? '' })}</p>
+        <footer>
+          <button class="ghost" onclick={close}>{t('updateDialog.restartLater')}</button>
+          <button class="primary" onclick={onRestart}>{t('updateDialog.restartNow')}</button>
+        </footer>
+
+      {:else if updater.state === 'error'}
+        <h2 id="updater-title">{t('updateDialog.error')}</h2>
+        <p class="error">{updater.error ?? t('updateDialog.unknownError')}</p>
+        <footer>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
+        </footer>
+
+      {:else if updater.state === 'uptodate'}
+        <h2 id="updater-title">{t('updateDialog.upToDate')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        <footer>
+          <button class="primary" onclick={close}>{t('common.close')}</button>
+        </footer>
+      {:else}
+        <h2 id="updater-title">{t('updateDialog.notChecked')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        <footer>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
+          <button class="primary" onclick={onCheckNow}>{t('settings.update.checkNow')}</button>
+        </footer>
+      {/if}
+    </div>
+  </div>
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/UpdateDialog.svelte:55:5
+Warn: Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events (svelte)
+  <div class="overlay" role="presentation" onclick={close}>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="updater-title"
+         onclick={(e) => e.stopPropagation()}>
+
+      {#if updater.state === 'checking'}
+        <h2 id="updater-title">{t('updateDialog.checking')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        <div class="progress-wrap">
+          <div class="progress">
+            <div class="bar indeterminate" style:width="30%"></div>
+          </div>
+        </div>
+        <footer>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
+        </footer>
+
+      {:else if updater.state === 'available'}
+        <h2 id="updater-title">{t('updateDialog.available', { version: updater.latestVersion ?? '' })}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        {#if desktopCapabilities.value?.distributionChannel === 'package-manager'}
+          <p class="meta">{t('settings.update.packageManager')}</p>
+        {/if}
+        {#if updater.notes}
+          <div class="notes">
+            <h3>{t('updateDialog.whatsNew')}</h3>
+            <pre>{updater.notes}</pre>
+          </div>
+        {:else}
+          <p class="meta">{t('updateDialog.noNotes')}</p>
+        {/if}
+        <footer>
+          <button class="ghost" onclick={onSkip}>{t('updateDialog.skip')}</button>
+          <button class="ghost" onclick={close}>{t('updateDialog.later')}</button>
+          <button class="primary" onclick={onUpdateNow}>{desktopCapabilities.value?.distributionChannel === 'package-manager'
+            ? t('settings.update.viewDownloads', { version: updater.latestVersion ?? '' })
+            : t('updateDialog.updateNow')}</button>
+        </footer>
+
+      {:else if updater.state === 'downloading'}
+        <h2 id="updater-title">{t('updateDialog.downloading', { version: updater.latestVersion ?? '' })}</h2>
+        <div class="progress-wrap">
+          <div class="progress">
+            <div class="bar" style:width={percent !== null ? `${percent}%` : '30%'} class:indeterminate={percent === null}></div>
+          </div>
+          <p class="progress-text">
+            {#if percent !== null && updater.contentLength}
+              {formatBytes(updater.downloaded)} / {formatBytes(updater.contentLength)} ({percent}%)
+            {:else}
+              {formatBytes(updater.downloaded)}
+            {/if}
+          </p>
+        </div>
+        <footer>
+          <button class="ghost" onclick={close}>{t('updateDialog.runInBackground')}</button>
+        </footer>
+
+      {:else if updater.state === 'ready'}
+        <h2 id="updater-title">{t('updateDialog.ready')}</h2>
+        <p>{t('updateDialog.readyBody', { version: updater.latestVersion ?? '' })}</p>
+        <footer>
+          <button class="ghost" onclick={close}>{t('updateDialog.restartLater')}</button>
+          <button class="primary" onclick={onRestart}>{t('updateDialog.restartNow')}</button>
+        </footer>
+
+      {:else if updater.state === 'error'}
+        <h2 id="updater-title">{t('updateDialog.error')}</h2>
+        <p class="error">{updater.error ?? t('updateDialog.unknownError')}</p>
+        <footer>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
+        </footer>
+
+      {:else if updater.state === 'uptodate'}
+        <h2 id="updater-title">{t('updateDialog.upToDate')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        <footer>
+          <button class="primary" onclick={close}>{t('common.close')}</button>
+        </footer>
+      {:else}
+        <h2 id="updater-title">{t('updateDialog.notChecked')}</h2>
+        <p class="meta">{t('updateDialog.currentVersion', { version: updater.currentVersion ?? '' })}</p>
+        <footer>
+          <button class="ghost" onclick={close}>{t('common.close')}</button>
+          <button class="primary" onclick={onCheckNow}>{t('settings.update.checkNow')}</button>
+        </footer>
+      {/if}
+    </div>
+  </div>
+
+/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/FindReplace.svelte:77:3
+Warn: Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
+https://svelte.dev/e/a11y_no_noninteractive_element_interactions (svelte)
+{#if findState.open}
+  <div class="find-bar" role="search" onkeydown={onKeyDown}>
+    <div class="find-row">
+      <div class="input-wrap">
+        <input
+          bind:this={searchInput}
+          class="find-input"
+          type="text"
+          placeholder={t('findReplace.find')}
+          bind:value={findState.query}
+        />
+        <button
+          class="opt-btn"
+          class:active={findState.caseSensitive}
+          onclick={() => findState.caseSensitive = !findState.caseSensitive}
+          title={t('findReplace.matchCase')}
+          aria-label={t('findReplace.matchCase')}
+        >Aa</button>
+        <button
+          class="opt-btn"
+          class:active={findState.wholeWord}
+          onclick={() => findState.wholeWord = !findState.wholeWord}
+          title={t('findReplace.wholeWord')}
+          aria-label={t('findReplace.wholeWord')}
+        >wd</button>
+        <button
+          class="opt-btn"
+          class:active={findState.useRegex}
+          onclick={() => findState.useRegex = !findState.useRegex}
+          title={t('findReplace.regex')}
+          aria-label={t('findReplace.regex')}
+        >.*</button>
+      </div>
+      <span class="sep"></span>
+      <button class="nav-btn" onclick={prev} title={t('findReplace.previous')} aria-label={t('findReplace.previous')}>‹</button>
+      <button class="nav-btn" onclick={next} title={t('findReplace.next')} aria-label={t('findReplace.next')}>›</button>
+      <span class="match-count">{findState.currentMatch}/{findState.matchCount}</span>
+      <button class="close-btn" onclick={closeFind} aria-label={t('common.close')}>×</button>
+    </div>
+    {#if findState.showReplace}
+      <div class="replace-row">
+        <div class="input-wrap">
+          <input
+            bind:this={replaceInput}
+            class="find-input"
+            type="text"
+            placeholder={t('findReplace.replaceWith')}
+            bind:value={findState.replacement}
+          />
+        </div>
+        <span class="sep"></span>
+        <button class="action-btn" onclick={replaceCurrent} title={t('findReplace.replace')}>R↵</button>
+        <button class="action-btn" onclick={replaceAll} title={t('findReplace.replaceAll')}>R*</button>
+      </div>
+    {:else}
+      <button class="toggle-replace" onclick={toggleReplace}>{t('findReplace.replaceToggle')}</button>
+    {/if}
+  </div>
+{/if}
+
+====================================
+svelte-check found 0 errors and 30 warnings in 14 files
+schemas written to /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/plugin-protocol/../protocol/schema
+✓ protocol artifacts up to date
+5 vulnerabilities found
+Severity: 1 low | 4 moderate
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:27:7
+   |
+27 |       unsafe { sheet.setAlphaValue(0.5) };
+   |       ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:28:7
+   |
+28 |       unsafe { ns_window.beginSheet_completionHandler(&sheet, None) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:29:36
+   |
+29 |     } else if let Some(attached) = unsafe { ns_window.attachedSheet() } {
+   |                                    ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:30:7
+   |
+30 |       unsafe { ns_window.endSheet(&attached) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:36:5
+   |
+36 |     unsafe { ns_window.attachedSheet() }.is_none()
+   |     ^^^^^^ unnecessary `unsafe` block
+
+warning: `tauri-runtime-wry` (lib) generated 5 warnings
+warning: tauri-plugin-native-editor@0.1.0: In file included from native/editor.m:6:
+warning: tauri-plugin-native-editor@0.1.0: native/candidates-bridge.h:71:54: warning: comparison of integers of different signs: 'CFIndex' (aka 'long') and 'const NSUInteger' (aka 'const unsigned long') [-Wsign-compare]
+warning: tauri-plugin-native-editor@0.1.0:    71 |     if(messageID!=1 || !data || CFDataGetLength(data)>SumiCandidateMessageLimit)return NULL;
+warning: tauri-plugin-native-editor@0.1.0:       |                                 ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: tauri-plugin-native-editor@0.1.0: 1 warning generated.
+   Compiling notemd v6.1119.1 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src-tauri)
+warning: associated function `read` is never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated function in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (lib test) generated 1 warning
+warning: struct `Observed` is never constructed
+ --> src/sumi/external.rs:9:19
+  |
+9 | pub(super) struct Observed {
+  |                   ^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated items `read` and `pair` are never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated items in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+...
+34 |     pub fn pair(&self) -> Result<FilePair> {
+   |            ^^^^
+
+warning: function `current_block` is never used
+   --> src/smart_lookup.rs:319:15
+    |
+319 | pub(crate) fn current_block(root: &Path, hit: &CanonicalHit) -> Result<String, String> {
+    |               ^^^^^^^^^^^^^
+
+warning: `notemd` (lib) generated 3 warnings
+warning: unused import: `ParsedHeader`
+ --> tests/themes_header_test.rs:1:48
+  |
+1 | use notemd_lib::themes::header::{parse_header, ParsedHeader};
+  |                                                ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `notemd` (test "themes_header_test") generated 1 warning (run `cargo fix --test "themes_header_test" -p notemd` to apply 1 suggestion)
+    Finished `test` profile [unoptimized] target(s) in 26.08s
+     Running unittests src/lib.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/notemd_lib-ab9d35f1a0c5c15d)
+
+running 25 tests
+test canvas_document::tests::command_payloads_use_the_frontend_camel_case_contract ... ok
+test canvas_document::tests::missing_parent_and_non_canvas_extension_are_rejected ... ok
+test canvas_document::tests::probe_reports_a_canonical_missing_target ... ok
+test canvas_document::tests::open_returns_text_and_revision_from_the_same_bytes ... ok
+test canvas_document::tests::ios_open_in_rejects_an_oversized_external_canvas_before_copying ... ok
+test canvas_document::tests::ios_open_in_rejects_non_canvas_files_without_creating_an_import ... ok
+test canvas_resource::tests::command_payload_uses_camel_case_fields ... ok
+test canvas_document::tests::ios_open_in_keeps_a_canvas_already_inside_documents_in_place ... ok
+test canvas_document::tests::conditional_save_rejects_a_stale_revision_without_touching_the_file ... ok
+test canvas_document::tests::create_refuses_to_replace_an_existing_file ... ok
+test canvas_resource::tests::enforces_the_resource_size_limit_before_reading ... ok
+test canvas_document::tests::create_writes_a_new_file_and_returns_its_exact_revision ... ok
+test canvas_document::tests::existing_symlink_is_saved_through_its_canonical_target ... ok
+test canvas_document::tests::ios_open_in_copies_an_external_canvas_into_documents ... ok
+test canvas_resource::tests::resolves_any_regular_file_inside_root_without_reading_it ... ok
+test canvas_document::tests::ios_open_in_allocates_a_unique_name_without_overwriting ... ok
+test canvas_document::tests::force_overwrites_an_existing_file_but_does_not_recreate_a_missing_one ... ok
+test canvas_resource::tests::reads_a_valid_image_inside_the_canonical_root ... ok
+test canvas_resource::tests::rejects_outside_paths_and_non_files ... ok
+test canvas_resource::tests::keeps_an_existing_inside_file_without_copying_it ... ok
+test canvas_resource::tests::rejects_svg_and_mismatched_image_content ... ok
+test canvas_resource::tests::rejects_a_symlink_that_resolves_outside_the_root ... ok
+test canvas_resource::tests::import_rejects_a_symlinked_resource_directory_outside_root ... ok
+test canvas_document::tests::simultaneous_saves_with_one_revision_cannot_both_win ... ok
+test canvas_resource::tests::imports_outside_files_without_overwriting_existing_names ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 1736 filtered out; finished in 0.08s
+
+     Running unittests src/main.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/notemd-f63a6fbc713f04fa)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli_builtin_integration.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/cli_builtin_integration-cefb43350b5e4d9c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/cli_startup_timing.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/cli_startup_timing-6ee411e68b3c8ba3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/knowledge_structure_backward_compat.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/knowledge_structure_backward_compat-48ecbc7f91b51f23)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests/mcp_shim_integration.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/mcp_shim_integration-1c29b9914070840b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/memory_v2_contract.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/memory_v2_contract-e6e7f20725dceb55)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests/mobile_project_config.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/mobile_project_config-fe0c0901962468a3)
+
+running 2 tests
+test ios_plist_registers_canvas_as_an_editable_document ... ok
+test canvas_clipboard_fallback_can_read_and_write_text ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/plugin_runtime_integration.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/plugin_runtime_integration-75a41561432d706b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests/plugin_ui_integration.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/plugin_ui_integration-371149d155447fbe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/project_share_delivery.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/project_share_delivery-5c1617ad54a3b3a8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/quick_launch_plugin.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/quick_launch_plugin-019d5af0ecbd4238)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/search_cli_contract.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/search_cli_contract-2b16798facdf29ae)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.00s
+
+     Running tests/search_index_path_contract.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/search_index_path_contract-ee5591b9de5c6a46)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/search_scan_options_contract.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/search_scan_options_contract-5e712324849db5bd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/themes_appearance_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_appearance_test-ea02d36676aaf8cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests/themes_compiler_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_compiler_test-f76171b8c7509e72)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.00s
+
+     Running tests/themes_header_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_header_test-4c3bcede0a24338e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests/themes_id_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_id_test-9a9ac052f091bc6a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests/themes_import_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_import_test-95cd053fb68fa4fe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests/themes_migration_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_migration_test-4f9009fe0889729c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/themes_registry_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_registry_test-3c3a941459e2258c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/themes_zip_safety_test.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/themes_zip_safety_test-1c2a20c214deb800)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:27:7
+   |
+27 |       unsafe { sheet.setAlphaValue(0.5) };
+   |       ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:28:7
+   |
+28 |       unsafe { ns_window.beginSheet_completionHandler(&sheet, None) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:29:36
+   |
+29 |     } else if let Some(attached) = unsafe { ns_window.attachedSheet() } {
+   |                                    ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:30:7
+   |
+30 |       unsafe { ns_window.endSheet(&attached) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:36:5
+   |
+36 |     unsafe { ns_window.attachedSheet() }.is_none()
+   |     ^^^^^^ unnecessary `unsafe` block
+
+warning: `tauri-runtime-wry` (lib) generated 5 warnings
+warning: tauri-plugin-native-editor@0.1.0: In file included from native/editor.m:6:
+warning: tauri-plugin-native-editor@0.1.0: native/candidates-bridge.h:71:54: warning: comparison of integers of different signs: 'CFIndex' (aka 'long') and 'const NSUInteger' (aka 'const unsigned long') [-Wsign-compare]
+warning: tauri-plugin-native-editor@0.1.0:    71 |     if(messageID!=1 || !data || CFDataGetLength(data)>SumiCandidateMessageLimit)return NULL;
+warning: tauri-plugin-native-editor@0.1.0:       |                                 ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: tauri-plugin-native-editor@0.1.0: 1 warning generated.
+warning: struct `Observed` is never constructed
+ --> src/sumi/external.rs:9:19
+  |
+9 | pub(super) struct Observed {
+  |                   ^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated items `read` and `pair` are never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated items in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+...
+34 |     pub fn pair(&self) -> Result<FilePair> {
+   |            ^^^^
+
+warning: function `current_block` is never used
+   --> src/smart_lookup.rs:319:15
+    |
+319 | pub(crate) fn current_block(root: &Path, hit: &CanonicalHit) -> Result<String, String> {
+    |               ^^^^^^^^^^^^^
+
+warning: `notemd` (lib) generated 3 warnings
+    Finished `test` profile [unoptimized] target(s) in 0.23s
+     Running tests/mobile_project_config.rs (/Users/bruce/git/mdeditor/src-tauri/target/debug/deps/mobile_project_config-fe0c0901962468a3)
+
+running 3 tests
+test ios_plist_registers_canvas_as_an_editable_document ... ok
+test canvas_clipboard_fallback_can_read_and_write_text ... ok
+test global_shortcut_permissions_are_desktop_only ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Sumi: 6 selected cascades, 7 fonts, licenses and provenance verified; obsolete fonts removed
+[1;34m▸[0m bumping versions to 6.1119.2
+changelog rotated to v6.1119.2
+[1;34m▸[0m building (signed)
+[1;34m▸[0m building target aarch64-apple-darwin
+$ tauri build --target aarch64-apple-darwin
+        Info Looking up installed tauri packages to check mismatched versions...
+        Warn The bundle identifier "net.notemd.app" set in `"tauri.conf.json" identifier` ends with `.app`. This is not recommended because it conflicts with the application bundle extension on macOS.
+     Running beforeBuildCommand `pnpm build`
+$ python3 scripts/prepare-sumi-font.py && node scripts/check-share-merge-purity.mjs && node scripts/build-share-editor.mjs && vite build && node scripts/check-editor-kit-build.mjs && node scripts/check-share-editor-build.mjs
+Sumi: 6 selected cascades, 7 fonts, licenses and provenance verified; obsolete fonts removed
+Share merge purity OK (14 production TypeScript files)
+vite v6.4.2 building for production...
+transforming...
+6:41:20 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:37:4 This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+35:   // Host capabilities are supplied by the caller; the menu also runs on shared pages.
+36:   const groups = getMenuModel({
+37:     hasSelection,
+                    ^
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+6:41:20 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:39:4 This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+37:     hasSelection,
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+             ^
+40:     resource: untrack(() => resource),
+41:     readOnly,
+6:41:20 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:41:4 This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+39:     image,
+40:     resource: untrack(() => resource),
+41:     readOnly,
+                ^
+42:     traceInstalled: untrack(() => traceInstalled),
+43:     allowImageInsert: untrack(() => allowImageInsert),
+6:41:20 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:47:19 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+45: 
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+                               ^
+48:   let left = $state(position.x)
+49:   let openSubId = $state<string | null>(null)
+6:41:20 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:48:20 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+48:   let left = $state(position.x)
+                                ^
+49:   let openSubId = $state<string | null>(null)
+50:   let subMenuEl: HTMLDivElement | undefined = $state()
+✓ 349 modules transformed.
+rendering chunks...
+✓ built in 1.78s
+vite v6.4.2 building for production...
+transforming...
+✓ 4 modules transformed.
+rendering chunks...
+✓ built in 540ms
+{
+  "apiVersion": 1,
+  "js": {
+    "name": "share-editor.fe0ba267df4317fd5a598266e6ad1cf7fc7caa5850a98cec51e9cf4013388e1a.js",
+    "sha256": "fe0ba267df4317fd5a598266e6ad1cf7fc7caa5850a98cec51e9cf4013388e1a",
+    "sri": "sha384-W7j/6/X96UWnRGT45zAJv6dANJnqo3/pormXBXhdpahGNHE5cXSbn35nvcbPAskk"
+  },
+  "css": {
+    "name": "share-editor.b94df965f9d69a857b65c5b6d126fa0f1572acd4192ee648a23baf21ef7f6600.css",
+    "sha256": "b94df965f9d69a857b65c5b6d126fa0f1572acd4192ee648a23baf21ef7f6600",
+    "sri": "sha384-swAbqt8Bx8tewu98xNm6fTuldwfdQPilzo1V7Osv49obOjRU4Ha8i4uc+qR1pFJh"
+  },
+  "mermaid": {
+    "name": "share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js",
+    "sha256": "fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd",
+    "sri": "sha384-CrfNyKRTuv4LBgSqm/JweJ+SZEkdWFH73Wl6y7Kkqy0FJYXgE5/arv43M2ZDfI/Y"
+  }
+}
+vite v6.4.2 building for production...
+transforming...
+6:41:23 PM [vite-plugin-svelte] src/daily-notes-app.svelte:252:31 `<h1>` element should contain text
+https://svelte.dev/e/a11y_missing_content
+250:        its computed font/color to drive the read-only outline typography above. -->
+251:   <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+252:     <div class="moraya-editor"><h1></h1><hr /></div>
+                                             ^
+253:   </div>
+254:   {#if !ready}
+6:41:23 PM [vite-plugin-svelte] src/components/TabBar.svelte:187:12 Elements with the 'button' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+185:             <span class="title">{displayTitleForDocument(tab)}</span>
+186:             {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
+187:             <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+                                                                                               ^
+188:           </button>
+189:         {/each}
+6:41:23 PM [vite-plugin-svelte] src/components/TabBar.svelte:187:12 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+185:             <span class="title">{displayTitleForDocument(tab)}</span>
+186:             {#if isDirty(tab.id)}<span class="dot" aria-label={t('tabBar.modified')}></span>{/if}
+187:             <span class="close" role="button" onclick={(e) => onClose(e, tab.id)}>×</span>
+                                                                                               ^
+188:           </button>
+189:         {/each}
+6:41:23 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+53: {#if open}
+54:   <div class="overlay" role="presentation" onclick={close}>
+55:     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="updater-title"
+              ^
+56:          onclick={(e) => e.stopPropagation()}>
+57: 
+6:41:23 PM [vite-plugin-svelte] src/components/UpdateDialog.svelte:55:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+53: {#if open}
+54:   <div class="overlay" role="presentation" onclick={close}>
+55:     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="updater-title"
+              ^
+56:          onclick={(e) => e.stopPropagation()}>
+57: 
+6:41:23 PM [vite-plugin-svelte] src/components/FindReplace.svelte:77:2 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
+https://svelte.dev/e/a11y_no_noninteractive_element_interactions
+75: 
+76: {#if findState.open}
+77:   <div class="find-bar" role="search" onkeydown={onKeyDown}>
+            ^
+78:     <div class="find-row">
+79:       <div class="input-wrap">
+6:41:24 PM [vite-plugin-svelte] src/components/daily/DailyDay.svelte:356:2 Unused CSS selector ".empty-day"
+https://svelte.dev/e/css_unused_selector
+354:     margin: 0;
+355:   }
+356:   .empty-day {
+                 ^
+357:     opacity: 0.45;
+358:     cursor: text;
+6:41:24 PM [vite-plugin-svelte] src/components/outline/OutlineEditor.svelte:921:0 `<div>` with a contextmenu handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+919: </script>
+920: 
+921: <div class="outline-editor" class:embedded oncontextmenu={(e) => { if (!embedded) e.preventDefault() }}
+           ^
+922:   style={embedded ? '' : `--outline-font-family: ${typo.family}; --outline-font-size: ${typo.size}; --outline-line-height: ${typo.line};${typo.fg ? ` color: ${typo.fg};` : ''}${typo.bg ? ` background: ${typo.bg};` : ''}`}>
+923:   <div class="typo-probe" data-theme={activeThemeId} aria-hidden="true" bind:this={probeEl}>
+6:41:24 PM [vite-plugin-svelte] src/components/outline/OutlineEditor.svelte:983:2 Elements with the 'tree' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+981:   {/if}
+982:   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+983:   <div class="body" role="tree" bind:this={bodyEl} onclick={onBodyClick}
+             ^
+984:     onpointerdown={onBandDown} onpointermove={onBandMove} onpointerup={onBandUp}>
+985:     {#each visibleRoots as node (node.id)}
+6:41:24 PM [vite-plugin-svelte] src/components/BaseView.svelte:174:14 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+172:               ondrop={() => editable && onDrop(col)}
+173:             >
+174:               <span class="th-label" onclick={() => toggleSort(col)}>
+                          ^
+175:                 {label(col)}
+176:                 {#if clickSort?.property === col}<span class="sort-arrow">{clickSort.direction === 'ASC' ? '▲' : '▼'}</span>{/if}
+6:41:24 PM [vite-plugin-svelte] src/components/BaseView.svelte:174:14 `<span>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+172:               ondrop={() => editable && onDrop(col)}
+173:             >
+174:               <span class="th-label" onclick={() => toggleSort(col)}>
+                          ^
+175:                 {label(col)}
+176:                 {#if clickSort?.property === col}<span class="sort-arrow">{clickSort.direction === 'ASC' ? '▲' : '▼'}</span>{/if}
+6:41:24 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:37:4 This reference only captures the initial value of `hasSelection`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+35:   // Host capabilities are supplied by the caller; the menu also runs on shared pages.
+36:   const groups = getMenuModel({
+37:     hasSelection,
+                    ^
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+6:41:24 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:39:4 This reference only captures the initial value of `image`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+37:     hasSelection,
+38:     table: untrack(() => actions.canRun('table-align-center')),
+39:     image,
+             ^
+40:     resource: untrack(() => resource),
+41:     readOnly,
+6:41:24 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:41:4 This reference only captures the initial value of `readOnly`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+39:     image,
+40:     resource: untrack(() => resource),
+41:     readOnly,
+                ^
+42:     traceInstalled: untrack(() => traceInstalled),
+43:     allowImageInsert: untrack(() => allowImageInsert),
+6:41:24 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:47:19 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+45: 
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+                               ^
+48:   let left = $state(position.x)
+49:   let openSubId = $state<string | null>(null)
+6:41:24 PM [vite-plugin-svelte] src/lib/context-menu/EditorContextMenu.svelte:48:20 This reference only captures the initial value of `position`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+46:   let menuEl: HTMLDivElement | undefined = $state()
+47:   let top = $state(position.y)
+48:   let left = $state(position.x)
+                                ^
+49:   let openSubId = $state<string | null>(null)
+50:   let subMenuEl: HTMLDivElement | undefined = $state()
+6:41:24 PM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:311:2 Elements with the 'treeitem' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+309: 
+310: <div class="node" class:has-guide={showChildren && kids.length > 0} style="--depth: {depth}">
+311:   <div
+           ^
+312:     class="row"
+313:     class:auto={node.source !== 'manual'}
+6:41:24 PM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:336:4 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+334:         }}>▾</button>
+335:     {/if}
+336:     <span
+              ^
+337:       class="bullet"
+338:       class:has-kids={kids.length > 0}
+6:41:24 PM [vite-plugin-svelte] src/components/outline/OutlineNode.svelte:336:4 `<span>` with a dragstart or click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+334:         }}>▾</button>
+335:     {/if}
+336:     <span
+              ^
+337:       class="bullet"
+338:       class:has-kids={kids.length > 0}
+6:41:24 PM [vite-plugin-svelte] src/components/BaseColumnMenu.svelte:24:27 This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+22: 
+23:   let el = $state<HTMLDivElement | null>(null)
+24:   let pos = $state({ left: x, top: y })
+                                ^
+25:   // Keep the panel fully on screen — shifts left so the right edge stays inside
+26:   // the viewport (right-aligns the rightmost column's menu instead of clipping).
+6:41:24 PM [vite-plugin-svelte] src/components/BaseColumnMenu.svelte:24:35 This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+22: 
+23:   let el = $state<HTMLDivElement | null>(null)
+24:   let pos = $state({ left: x, top: y })
+                                        ^
+25:   // Keep the panel fully on screen — shifts left so the right edge stays inside
+26:   // the viewport (right-aligns the rightmost column's menu instead of clipping).
+6:41:24 PM [vite-plugin-svelte] src/components/BaseAddColumnMenu.svelte:16:27 This reference only captures the initial value of `x`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+14: 
+15:   let el = $state<HTMLDivElement | null>(null)
+16:   let pos = $state({ left: x, top: y })
+                                ^
+17:   // Keep the panel fully on screen (right-aligns near the viewport's right edge).
+18:   $effect(() => {
+6:41:24 PM [vite-plugin-svelte] src/components/BaseAddColumnMenu.svelte:16:35 This reference only captures the initial value of `y`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally
+14: 
+15:   let el = $state<HTMLDivElement | null>(null)
+16:   let pos = $state({ left: x, top: y })
+                                        ^
+17:   // Keep the panel fully on screen (right-aligns near the viewport's right edge).
+18:   $effect(() => {
+6:41:25 PM [vite-plugin-svelte] src/components/outline/RefTreeNode.svelte:23:25 This reference only captures the initial value of `defaultCollapsed`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+21:   } = $props()
+22: 
+23:   let collapsed = $state(defaultCollapsed)
+                                             ^
+24:   const hasChildren = $derived(node.children.length > 0)
+25: 
+6:41:25 PM [vite-plugin-svelte] src/components/outline/RefTreeNode.svelte:80:6 noninteractive element cannot have nonnegative tabIndex value
+https://svelte.dev/e/a11y_no_noninteractive_tabindex
+78:     {:else}
+79:       <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->
+80:       <span
+               ^
+81:         class="text" class:editable
+82:         role={editable ? 'button' : undefined}
+src/lib/project-share/review.svelte.ts (147:64): A comment
+
+"/* @__PURE__ */"
+
+in "src/lib/project-share/review.svelte.ts" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+6:41:25 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:273:2 Unused CSS selector ".harness"
+https://svelte.dev/e/css_unused_selector
+271:   }
+272:   .copy-context:disabled { opacity: 0.3; cursor: default; }
+273:   .harness { display: flex; margin: 0 0 4px; }
+               ^
+274:   /* select inherits neither font-size nor family — declare both, or the row
+275:      drifts at larger UI font sizes. */
+6:41:25 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:276:2 Unused CSS selector ".pick"
+https://svelte.dev/e/css_unused_selector
+274:   /* select inherits neither font-size nor family — declare both, or the row
+275:      drifts at larger UI font sizes. */
+276:   .pick {
+            ^
+277:     font: inherit;
+278:     font-size: 11px;
+6:41:25 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:288:2 Unused CSS selector ".pick:disabled"
+https://svelte.dev/e/css_unused_selector
+286:     cursor: pointer;
+287:   }
+288:   .pick:disabled { cursor: default; opacity: 0.45; }
+                     ^
+289:   .one {
+290:     font-size: 11px;
+6:41:25 PM [vite-plugin-svelte] src/components/outline/AgentWorkspace.svelte:289:2 Unused CSS selector ".one"
+https://svelte.dev/e/css_unused_selector
+287:   }
+288:   .pick:disabled { cursor: default; opacity: 0.45; }
+289:   .one {
+           ^
+290:     font-size: 11px;
+291:     opacity: 0.55;
+✓ 3424 modules transformed.
+rendering chunks...
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/daily/folds.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/daily-notes-app.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyDay.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyFocus.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyPage.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/note-anno/note-commands.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/rich-actions.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/rich-actions.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/slash-menu/slash-items-common.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/editor-kit-v2/file-main.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/project-share/review.svelte.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/@tauri-apps+api@2.11.0/node_modules/@tauri-apps/api/path.js is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/VaultBrowser.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/cli/share-cli.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/dialogs.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/dialogs.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/editor-bridge.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/path.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/paste-resources.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/vault.svelte.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/@tauri-apps+plugin-fs@2.5.1/node_modules/@tauri-apps/plugin-fs/dist-js/index.js, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/home-content/store.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/recent-sync.svelte.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/@tauri-apps+plugin-fs@2.5.1/node_modules/@tauri-apps/plugin-fs/dist-js/index.js is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SyncOriginBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyDay.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyDay.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyDay.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyFocus.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyFocus.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyPage.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyPage.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/blockio/yaml-rw.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/blockio/yaml-rw.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/cli/share-cli.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/daily/folds.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/daily/folds.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/auto-refresh.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/path.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/note-anno/adopt-answer.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/note-anno/answers-store.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/note-anno/answers-store.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/open-path.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/backlinks-io.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/backlinks-io.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/backlinks.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/backlinks.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/create.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/daily.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/migrate.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/note-writeback-io.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/question-capture.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/recall-writeback-io.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/rename-pair.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/store.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/host-render-html.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/sotvault.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/wikilink/blocklist-io.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/wikilink/blocklist-io.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/wikilink/blocklist-io.svelte.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/InsightsPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/VaultOverview.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/project-review/ProjectReview.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/share-guest/GuestPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/adapters/tauri-media-resolver.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/base/create.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/cli/CliRunner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/cli/share-cli.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/resource-actions.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/file-watcher.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/folder-view.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/fs.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/home-content/store.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/insights/run.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/insights/tracker.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/backlinks-io.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/quick-note.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/recent-sync.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/share/upload-image.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/dialogs.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/NativeFileView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/NativeFileView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/NativeFileView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/file-view-presentation.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/file-view-presentation.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/DesktopVaultSettings.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/DrawerNav.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/EmptyState.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/ExternalChangeBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/FolderView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/HomeApps.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/ProjectShareDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SourceView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/TabBar.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/VaultBrowser.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/canvas/CanvasView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/project-review/ProjectReview.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/side-panel/SearchPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/base/create.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/resource-actions.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/commands.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/path.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/blockio/citation.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock-hover/hover-store.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/auto-refresh.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/commands.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/FilePluginView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/file-view-presentation.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/file-view-presentation.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/share-guest/host.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/share-guest/host.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/share-guest/host.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/sotvault.svelte.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/BaseView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/CsvEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/CustomEditorIframe.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/DesktopVaultSettings.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/DrawerNav.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/EditorPane.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/EmptyState.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/ExternalChangeBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/FilePluginView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/FolderView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/HomeApps.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/HomeContent.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/InsightsPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/MirrorSiblingsBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/MobileToolbar.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/NativeFileView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/ProjectShareDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SourceView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SumiRecovery.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SyncOriginBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/TabBar.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/VaultBrowser.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/canvas/CanvasView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyDay.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyFocus.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyPage.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/history/HistoryPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/LinkedReferences.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/share-guest/GuestPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/share-guest/OpenShareDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/side-panel/SearchPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/autosave.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/base/create.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/source-actions.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/trace-action.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/editor-bridge.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/file-watcher.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/insights/tracker.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/mdblock/commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/open-path.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/backlinks-io.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/note-writeback-io.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/recall-writeback-io.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/file-view-commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/file-view-presentation.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/print.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/quick-note.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/share/index.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/sotvault.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/sumi/focus.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/sotvault.svelte.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/VaultSettingsTab.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/autosave.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/cli/share-cli.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/cli/share-cli.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/folder-view.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/note-anno/answers-store.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/okf/identity.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/daily.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/question-capture.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/vault-settings.svelte.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/HomeApps.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/InsightsPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/MirrorSiblingsBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/ProjectShareDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SettingsDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SyncOriginBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SyncToVaultBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/TabBar.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/VaultOverview.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/canvas/CanvasView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyDay.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyFeed.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyFocus.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/daily/DailyPage.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/history/HistoryPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlineEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/daily-notes-app.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/insights-app.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/canvas/save-as.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/commands.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/trace-action.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/editor-bridge.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/insights/run.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/insights/tracker.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/outline/backlinks-io.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/plugins/file-view-pages.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/recent-sync.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/share/index.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/side-panel/registry.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/tabs.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/vault-management.svelte.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/wikilink/blocklist-io.svelte.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/link-open.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/copy-image.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/resource-actions.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/trace-action.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/source-actions.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SourceView.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/@tauri-apps+api@2.11.0/node_modules/@tauri-apps/api/webview.js is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/RichEditor.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/NativeFileView.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/side-panel/registry.svelte.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/open-path.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/FolderView.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SettingsDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/history/HistoryPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/outline/OutlinePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/share-guest/OpenShareDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/side-panel/SearchPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/side-panel/SidePanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/side-panel/SideViewSwitcher.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/toc/TocPanel.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/commands.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/commands.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/TabBar.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/DrawerNav.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/MobileToolbar.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/node_modules/.pnpm/@tauri-apps+plugin-http@2.5.9/node_modules/@tauri-apps/plugin-http/dist-js/index.js is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/context-menu/resource-actions.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/copy-image.ts, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/video-links.ts but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/linux-updates.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/updater.svelte.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SettingsDialog.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/UpdateBanner.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/UpdateDialog.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/theme-import-bus.svelte.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/SettingsDialog.svelte, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/lib/recent-sync.svelte.ts is dynamically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte but also statically imported by /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/App.svelte, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src/components/DrawerNav.svelte, dynamic import will not move module into another chunk.
+
+computing gzip size...
+dist/index.html                                                                                           0.72 kB │ gzip:   0.33 kB
+dist/share-editor-manifest.json                                                                           0.87 kB │ gzip:   0.45 kB
+dist/preview.html                                                                                         1.04 kB │ gzip:   0.41 kB
+dist/logs.html                                                                                            1.38 kB │ gzip:   0.51 kB
+dist/plugin-market.html                                                                                   1.54 kB │ gzip:   0.50 kB
+dist/smart-search.html                                                                                    1.91 kB │ gzip:   0.62 kB
+dist/insights.html                                                                                        2.44 kB │ gzip:   0.65 kB
+dist/daily-notes.html                                                                                     2.67 kB │ gzip:   0.70 kB
+dist/assets/KaTeX_Size3-Regular-CTq5MqoE.woff                                                             4.42 kB
+dist/assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2                                                            4.93 kB
+dist/assets/KaTeX_Size2-Regular-Dy4dx90m.woff2                                                            5.21 kB
+dist/assets/KaTeX_Size1-Regular-mCD8mA8B.woff2                                                            5.47 kB
+dist/assets/KaTeX_Size4-Regular-BF-4gkZK.woff                                                             5.98 kB
+dist/assets/KaTeX_Size2-Regular-oD1tc_U0.woff                                                             6.19 kB
+dist/assets/KaTeX_Size1-Regular-C195tn64.woff                                                             6.50 kB
+dist/assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2                                                      6.91 kB
+dist/assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2                                                         6.91 kB
+dist/assets/KaTeX_Size3-Regular-DgpXs0kz.ttf                                                              7.59 kB
+dist/assets/KaTeX_Caligraphic-Regular-CTRA-rTL.woff                                                       7.66 kB
+dist/assets/KaTeX_Caligraphic-Bold-BEiXGLvX.woff                                                          7.72 kB
+dist/assets/KaTeX_Script-Regular-D3wIWfF6.woff2                                                           9.64 kB
+dist/assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2                                                       10.34 kB
+dist/assets/KaTeX_Size4-Regular-DWFBv043.ttf                                                             10.36 kB
+dist/assets/KaTeX_Script-Regular-D5yQViql.woff                                                           10.59 kB
+dist/assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2                                                         11.32 kB
+dist/assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2                                                            11.35 kB
+dist/assets/KaTeX_Size2-Regular-B7gKUWhC.ttf                                                             11.51 kB
+dist/assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2                                                        12.03 kB
+dist/assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2                                                          12.22 kB
+dist/assets/KaTeX_Size1-Regular-Dbsnue_I.ttf                                                             12.23 kB
+dist/assets/KaTeX_SansSerif-Regular-CS6fqUqJ.woff                                                        12.32 kB
+dist/assets/KaTeX_Caligraphic-Regular-wX97UBjC.ttf                                                       12.34 kB
+dist/assets/KaTeX_Caligraphic-Bold-ATXxdsX0.ttf                                                          12.37 kB
+dist/assets/KaTeX_Fraktur-Regular-Dxdc4cR9.woff                                                          13.21 kB
+dist/assets/KaTeX_Fraktur-Bold-BsDP51OF.woff                                                             13.30 kB
+dist/assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2                                                      13.57 kB
+dist/assets/KaTeX_SansSerif-Italic-DN2j7dab.woff                                                         14.11 kB
+dist/assets/KaTeX_SansSerif-Bold-DbIhKOiC.woff                                                           14.41 kB
+dist/assets/merge-worker-BVp_TSBi.js                                                                     15.43 kB
+dist/assets/KaTeX_Typewriter-Regular-C0xS9mPB.woff                                                       16.03 kB
+dist/assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2                                                         16.40 kB
+dist/assets/KaTeX_Math-Italic-t53AETM-.woff2                                                             16.44 kB
+dist/assets/KaTeX_Script-Regular-C5JkGWo-.ttf                                                            16.65 kB
+dist/assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2                                                         16.78 kB
+dist/assets/KaTeX_Main-Italic-NWA7e6Wa.woff2                                                             16.99 kB
+dist/assets/KaTeX_Math-BoldItalic-iY-2wyZ7.woff                                                          18.67 kB
+dist/assets/KaTeX_Math-Italic-DA0__PXp.woff                                                              18.75 kB
+dist/assets/KaTeX_Main-BoldItalic-SpSLRI95.woff                                                          19.41 kB
+dist/assets/KaTeX_SansSerif-Regular-BNo7hRIc.ttf                                                         19.44 kB
+dist/assets/KaTeX_Fraktur-Regular-CB_wures.ttf                                                           19.57 kB
+dist/assets/KaTeX_Fraktur-Bold-BdnERNNW.ttf                                                              19.58 kB
+dist/assets/KaTeX_Main-Italic-BMLOBm91.woff                                                              19.68 kB
+dist/assets/KaTeX_SansSerif-Italic-YYjJ1zSn.ttf                                                          22.36 kB
+dist/assets/KaTeX_SansSerif-Bold-CFMepnvq.ttf                                                            24.50 kB
+dist/assets/KaTeX_Main-Bold-Cx986IdX.woff2                                                               25.32 kB
+dist/assets/KaTeX_Main-Regular-B22Nviop.woff2                                                            26.27 kB
+dist/assets/KaTeX_Typewriter-Regular-D3Ib7_Hf.ttf                                                        27.56 kB
+dist/assets/KaTeX_AMS-Regular-BQhdFMY1.woff2                                                             28.08 kB
+dist/assets/KaTeX_Main-Bold-Jm3AIy58.woff                                                                29.91 kB
+dist/assets/KaTeX_Main-Regular-Dr94JaBh.woff                                                             30.77 kB
+dist/assets/KaTeX_Math-BoldItalic-B3XSjfu4.ttf                                                           31.20 kB
+dist/assets/KaTeX_Math-Italic-flOr_0UB.ttf                                                               31.31 kB
+dist/assets/KaTeX_Main-BoldItalic-DzxPMmG6.ttf                                                           32.97 kB
+dist/assets/KaTeX_AMS-Regular-DMm9YOAa.woff                                                              33.52 kB
+dist/assets/KaTeX_Main-Italic-3WenGoN9.ttf                                                               33.58 kB
+dist/assets/KaTeX_Main-Bold-waoOVXN0.ttf                                                                 51.34 kB
+dist/assets/KaTeX_Main-Regular-ypZvNtVU.ttf                                                              53.58 kB
+dist/assets/KaTeX_AMS-Regular-DRggAlZN.ttf                                                               63.63 kB
+dist/assets/share-editor-mermaid.fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd.js    702.88 kB
+dist/assets/share-editor.fe0ba267df4317fd5a598266e6ad1cf7fc7caa5850a98cec51e9cf4013388e1a.js          2,033.70 kB
+dist/assets/GuestPanel-Cn_k46G7.css                                                                       0.35 kB │ gzip:   0.21 kB
+dist/assets/SideViewSwitcher-CRqzFutO.css                                                                 0.98 kB │ gzip:   0.43 kB
+dist/assets/file-history-focus-BDWmGue5.css                                                               1.37 kB │ gzip:   0.52 kB
+dist/assets/HistoryPanel-B_CTyptF.css                                                                     1.69 kB │ gzip:   0.59 kB
+dist/assets/Toast-DGPmvHKY.css                                                                            1.77 kB │ gzip:   0.64 kB
+dist/assets/logs-CVFEU-1F.css                                                                             2.01 kB │ gzip:   0.73 kB
+dist/assets/TocPanel-l-ey1YdZ.css                                                                         2.44 kB │ gzip:   0.78 kB
+dist/assets/preview-CR-wM4CY.css                                                                          2.84 kB │ gzip:   0.98 kB
+dist/assets/dailyNotes-KkREOcf2.css                                                                       3.00 kB │ gzip:   0.96 kB
+dist/assets/app-4JHJtRpQ.css                                                                              3.95 kB │ gzip:   1.40 kB
+dist/assets/FolderView-Dd6hCuhw.css                                                                       4.09 kB │ gzip:   1.17 kB
+dist/assets/OutlinePanel-CRH0xwpo.css                                                                     5.15 kB │ gzip:   1.47 kB
+dist/assets/SearchPanel-xjGHaSKu.css                                                                      5.20 kB │ gzip:   1.35 kB
+dist/assets/insights-7Hw5t_E9.css                                                                         5.31 kB │ gzip:   1.20 kB
+dist/assets/smartSearch-qjTKraE-.css                                                                     13.80 kB │ gzip:   2.79 kB
+dist/assets/share-editor.b94df965f9d69a857b65c5b6d126fa0f1572acd4192ee648a23baf21ef7f6600.css            17.57 kB │ gzip:   3.97 kB
+dist/assets/pluginMarket-UxvbeEsv.css                                                                    21.19 kB │ gzip:   4.50 kB
+dist/assets/editor-kit-v1.css                                                                            28.37 kB │ gzip:   5.62 kB
+dist/assets/editor-bridge-BYZTj3zW.css                                                                   29.29 kB │ gzip:   8.07 kB
+dist/assets/CanvasView-Cq2tvu5I.css                                                                      36.44 kB │ gzip:   6.40 kB
+dist/assets/OutlineEditor-D6h1wc7k.css                                                                   39.18 kB │ gzip:   7.43 kB
+dist/assets/App-D_V46b1C.css                                                                             95.91 kB │ gzip:  17.10 kB
+dist/assets/platform-sync-Bf_gpvhP.js                                                                     0.20 kB │ gzip:   0.16 kB
+dist/assets/actions-BN9-IGTI.js                                                                           0.26 kB │ gzip:   0.21 kB
+dist/assets/records-CM7CkH72.js                                                                           0.29 kB │ gzip:   0.21 kB
+dist/assets/core-BqrCeeBj.js                                                                              0.30 kB │ gzip:   0.21 kB
+dist/assets/index-BkQFUAv9.js                                                                             0.33 kB │ gzip:   0.22 kB
+dist/assets/shared-config-CBzU7n5d.js                                                                     0.36 kB │ gzip:   0.21 kB
+dist/assets/observer-CDRYU9MD.js                                                                          0.38 kB │ gzip:   0.27 kB
+dist/assets/themes.svelte-DQRa5vNc.js                                                                     0.40 kB │ gzip:   0.27 kB
+dist/assets/placeholder-plugin-BAiX1056.js                                                                0.44 kB │ gzip:   0.31 kB
+dist/assets/this-D_vkjgel.js                                                                              0.45 kB │ gzip:   0.29 kB
+dist/assets/pele-loader-Bw-eHOVY.js                                                                       0.46 kB │ gzip:   0.32 kB
+dist/assets/note-home-weAug_fF.js                                                                         0.51 kB │ gzip:   0.29 kB
+dist/assets/host-settings.svelte-vmSs_zNQ.js                                                              0.55 kB │ gzip:   0.35 kB
+dist/assets/index-client-D6jygOYE.js                                                                      0.62 kB │ gzip:   0.38 kB
+dist/assets/index-CmpDyo29.js                                                                             0.67 kB │ gzip:   0.30 kB
+dist/assets/io-DSbeH3Iy.js                                                                                0.70 kB │ gzip:   0.37 kB
+dist/assets/edit.utils-CzfeG98N-BxJdZqXr.js                                                               0.72 kB │ gzip:   0.35 kB
+dist/assets/note-plugin-BpNN4gy6.js                                                                       0.75 kB │ gzip:   0.48 kB
+dist/assets/host-config.svelte-D1OsRAtt.js                                                                0.81 kB │ gzip:   0.51 kB
+dist/assets/filter.button-C8XTWPU2-CAE-ouN9.js                                                            0.90 kB │ gzip:   0.57 kB
+dist/assets/input-DQBvFhSk.js                                                                             0.92 kB │ gzip:   0.49 kB
+dist/assets/store.svelte-ClPamArQ.js                                                                      0.97 kB │ gzip:   0.48 kB
+dist/assets/naming-CI8pXF3j.js                                                                            1.00 kB │ gzip:   0.65 kB
+dist/assets/recent-merge-C45aZU13.js                                                                      1.04 kB │ gzip:   0.59 kB
+dist/assets/file-input-error-O0hDlnWJ.js                                                                  1.05 kB │ gzip:   0.62 kB
+dist/assets/platform.svelte-CE-5jKl8.js                                                                   1.05 kB │ gzip:   0.62 kB
+dist/assets/canvas-view-state-B62vBf3P.js                                                                 1.07 kB │ gzip:   0.49 kB
+dist/assets/preload-helper-BlTxHScW.js                                                                    1.11 kB │ gzip:   0.65 kB
+dist/assets/paths-CQq9AsVa.js                                                                             1.25 kB │ gzip:   0.55 kB
+dist/assets/save-as-wxRopeRs.js                                                                           1.25 kB │ gzip:   0.85 kB
+dist/assets/theme-loader-DPxgLZai.js                                                                      1.25 kB │ gzip:   0.65 kB
+dist/assets/ime-B_LCJqxN.js                                                                               1.32 kB │ gzip:   0.66 kB
+dist/assets/grouping-BFrNU3_o.js                                                                          1.37 kB │ gzip:   0.68 kB
+dist/assets/_virtual_share-editor-kit-qBk67OjE.js                                                         1.42 kB │ gzip:   0.53 kB
+dist/assets/identity-Djt4NXze.js                                                                          1.50 kB │ gzip:   0.81 kB
+dist/assets/tauri-media-resolver-DIJVN3TP.js                                                              1.59 kB │ gzip:   0.83 kB
+dist/assets/migrate-_9k1y5jt.js                                                                           1.66 kB │ gzip:   0.71 kB
+dist/assets/theme-controller.svelte-CRkLaZNa.js                                                           1.68 kB │ gzip:   0.88 kB
+dist/assets/mermaid-loader-Bsdtvqcs.js                                                                    1.75 kB │ gzip:   0.97 kB
+dist/assets/diagram-render-XilE1GAM.js                                                                    1.84 kB │ gzip:   0.95 kB
+dist/assets/renderer-registry-DIDDciAR.js                                                                 1.88 kB │ gzip:   0.90 kB
+dist/assets/session-lOp9y7nQ.js                                                                           1.88 kB │ gzip:   0.85 kB
+dist/assets/SideViewSwitcher-CUeGtYMO.js                                                                  2.06 kB │ gzip:   1.08 kB
+dist/assets/file-view-pages-CkGaQ0Ir.js                                                                   2.12 kB │ gzip:   1.02 kB
+dist/assets/index-YDENRKRv.js                                                                             2.28 kB │ gzip:   0.97 kB
+dist/assets/hover-store.svelte-CKJThdzt.js                                                                2.29 kB │ gzip:   0.97 kB
+dist/assets/debounce-BfO9dz9v-BxUvzCXM.js                                                                 2.34 kB │ gzip:   1.15 kB
+dist/assets/quick-note.svelte-DwGbJ2Up.js                                                                 2.42 kB │ gzip:   1.25 kB
+dist/assets/question-capture-B3XEiSHI.js                                                                  2.58 kB │ gzip:   1.15 kB
+dist/assets/config-LgPStiNz.js                                                                            2.65 kB │ gzip:   1.10 kB
+dist/assets/props-qyRgLaXu.js                                                                             2.73 kB │ gzip:   1.24 kB
+dist/assets/wikilink-plugin-CmJvNpvl.js                                                                   2.75 kB │ gzip:   1.36 kB
+dist/assets/index-DIaWlqi9.js                                                                             3.02 kB │ gzip:   1.25 kB
+dist/assets/daily-Cze6kX9k.js                                                                             3.15 kB │ gzip:   1.20 kB
+dist/assets/index-CTQHE5aT.js                                                                             3.25 kB │ gzip:   1.57 kB
+dist/assets/throttle-BEjFQa2l-De5D1gBl.js                                                                 3.28 kB │ gzip:   1.28 kB
+dist/assets/adopt-answer-CbhmNjhm.js                                                                      3.42 kB │ gzip:   1.50 kB
+dist/assets/core-uMtBA8D0.js                                                                              3.42 kB │ gzip:   1.45 kB
+dist/assets/image-vOippt4I.js                                                                             3.45 kB │ gzip:   1.29 kB
+dist/assets/editor-kit-v1.js                                                                              3.56 kB │ gzip:   1.64 kB
+dist/assets/theme-DyEYH6O-.js                                                                             3.98 kB │ gzip:   1.93 kB
+dist/assets/preview-BoJ5buH6.js                                                                           4.07 kB │ gzip:   1.89 kB
+dist/assets/events-BvSmBueA-MiV7zPVq.js                                                                   4.22 kB │ gzip:   1.78 kB
+dist/assets/index-BANANPWQ.js                                                                             4.28 kB │ gzip:   1.57 kB
+dist/assets/TocPanel-CHBDIWUz.js                                                                          4.60 kB │ gzip:   2.11 kB
+dist/assets/store.svelte-ChF66O2g.js                                                                      4.69 kB │ gzip:   1.72 kB
+dist/assets/tracker.svelte-BMWioISe.js                                                                    4.86 kB │ gzip:   2.04 kB
+dist/assets/answer-card-Dl2-GhsT.js                                                                       4.94 kB │ gzip:   2.13 kB
+dist/assets/plugin-D4IAz-Km.js                                                                            5.00 kB │ gzip:   2.29 kB
+dist/assets/logs-vwi0-qfF.js                                                                              6.04 kB │ gzip:   2.46 kB
+dist/assets/header-cell-renderer-DXhxZMly-B4r733F_.js                                                     6.63 kB │ gzip:   2.17 kB
+dist/assets/run-7wV9ulQO.js                                                                               7.48 kB │ gzip:   3.31 kB
+dist/assets/HistoryPanel-CMNtZ2rt.js                                                                      7.50 kB │ gzip:   2.73 kB
+dist/assets/Toast-kGGmd7W-.js                                                                             7.79 kB │ gzip:   3.56 kB
+dist/assets/api-4FwaK_Jz.js                                                                               8.35 kB │ gzip:   3.51 kB
+dist/assets/settings.svelte-BBdwZHwR.js                                                                   8.46 kB │ gzip:   3.30 kB
+dist/assets/store.svelte-Btju3VBx.js                                                                      9.26 kB │ gzip:   3.89 kB
+dist/assets/revogr-clipboard_3.entry-CBIlJlBv.js                                                          9.46 kB │ gzip:   3.35 kB
+dist/assets/viewport.helpers-VXhsJZtn-D8eALuN0.js                                                         9.92 kB │ gzip:   3.95 kB
+dist/assets/GuestPanel-BuwW2LdN.js                                                                       10.56 kB │ gzip:   4.07 kB
+dist/assets/SearchPanel-B3KPQz1j.js                                                                      11.10 kB │ gzip:   4.33 kB
+dist/assets/folder-view.svelte-7iDsUPmC.js                                                               11.68 kB │ gzip:   4.42 kB
+dist/assets/insights-DXqWnk54.js                                                                         11.89 kB │ gzip:   4.32 kB
+dist/assets/window-DIeKRY_p.js                                                                           12.53 kB │ gzip:   3.02 kB
+dist/assets/attributes-DZ8pbWLA.js                                                                       13.58 kB │ gzip:   5.80 kB
+dist/assets/editor-bridge-BM-mU-pc.js                                                                    13.80 kB │ gzip:   5.38 kB
+dist/assets/json-canvas-BhlYtPVl.js                                                                      14.00 kB │ gzip:   4.73 kB
+dist/assets/revogr-filter-panel.entry-BECZhdE5.js                                                        14.16 kB │ gzip:   4.82 kB
+dist/assets/CliRunner-BxcbVCpx.js                                                                        14.24 kB │ gzip:   5.01 kB
+dist/assets/autopair-C2xsgISP.js                                                                         16.95 kB │ gzip:   6.25 kB
+dist/assets/FolderView-HhKwB7uM.js                                                                       18.81 kB │ gzip:   6.44 kB
+dist/assets/OutlinePanel-Bn3dul2D.js                                                                     21.77 kB │ gzip:   8.07 kB
+dist/assets/dailyNotes-BVI3TXgh.js                                                                       22.83 kB │ gzip:   8.11 kB
+dist/assets/dimension.helpers-DzxqJQqN-DJwWGQ0H.js                                                       23.38 kB │ gzip:   9.24 kB
+dist/assets/pluginMarket-BAyPdbOU.js                                                                     25.53 kB │ gzip:   8.63 kB
+dist/assets/markdown-security-mmORVuEK.js                                                                27.07 kB │ gzip:  10.30 kB
+dist/assets/editor-kit-v2.js                                                                             28.01 kB │ gzip:   9.87 kB
+dist/assets/revogr-attribution_7.entry-Bjsyg2SX.js                                                       29.39 kB │ gzip:   8.92 kB
+dist/assets/purify.es-DowdsyMd.js                                                                        30.46 kB │ gzip:  11.69 kB
+dist/assets/revogr-data_4.entry-DTlNruJC.js                                                              30.86 kB │ gzip:   9.78 kB
+dist/assets/render-D6Iplp-u.js                                                                           31.00 kB │ gzip:  11.98 kB
+dist/assets/file-history-focus-DSK29l3S.js                                                               47.39 kB │ gzip:  16.67 kB
+dist/assets/smartSearch-B1f1ptv-.js                                                                      55.77 kB │ gzip:  18.34 kB
+dist/assets/OutlineEditor-XDMZ-DjU.js                                                                    62.40 kB │ gzip:  20.92 kB
+dist/assets/file-main-BThseEeM.js                                                                        65.65 kB │ gzip:  23.39 kB
+dist/assets/index-Z0hG0CCj.js                                                                            89.35 kB │ gzip:  27.01 kB
+dist/assets/revo-grid.entry-iFAyVIcW.js                                                                  96.44 kB │ gzip:  26.01 kB
+dist/assets/index-kFtAQYqH.js                                                                            98.22 kB │ gzip:  31.33 kB
+dist/assets/CanvasView-CZeqY34I.js                                                                      256.19 kB │ gzip:  84.29 kB
+dist/assets/sotvault.svelte-pZClTYYI.js                                                                 282.41 kB │ gzip:  88.54 kB
+dist/assets/katex-C8yDF-Ck.js                                                                           282.66 kB │ gzip:  85.69 kB
+dist/assets/runtime.svelte-D23VIyr9.js                                                                  309.92 kB │ gzip:  95.77 kB
+dist/assets/pele-renderer-CR0M-4HK.js                                                                   671.11 kB │ gzip: 249.09 kB
+dist/assets/upload-image-CAhOxNzh.js                                                                  1,012.12 kB │ gzip: 319.75 kB
+dist/assets/index-C8cwMqhB.js                                                                         1,040.57 kB │ gzip: 314.43 kB
+dist/assets/App-Idaii5aO.js                                                                           1,150.60 kB │ gzip: 529.08 kB
+dist/assets/viz-thUrI7x4.js                                                                           1,352.51 kB │ gzip: 484.51 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.38s
+Editor Kit build OK (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/dist/assets/editor-kit-v1.js 3558 B, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/dist/assets/editor-kit-v2.js 28010 B, /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/dist/assets/editor-kit-v1.css 28370 B)
+{
+  "apiVersion": 1,
+  "mount": "function",
+  "resources": {
+    "js": {
+      "bytes": 2033700,
+      "gzip": 626275,
+      "sha256": "fe0ba267df4317fd5a598266e6ad1cf7fc7caa5850a98cec51e9cf4013388e1a",
+      "sri": "sha384-W7j/6/X96UWnRGT45zAJv6dANJnqo3/pormXBXhdpahGNHE5cXSbn35nvcbPAskk"
+    },
+    "css": {
+      "bytes": 17573,
+      "gzip": 3974,
+      "sha256": "b94df965f9d69a857b65c5b6d126fa0f1572acd4192ee648a23baf21ef7f6600",
+      "sri": "sha384-swAbqt8Bx8tewu98xNm6fTuldwfdQPilzo1V7Osv49obOjRU4Ha8i4uc+qR1pFJh"
+    },
+    "mermaid": {
+      "bytes": 702876,
+      "gzip": 260708,
+      "sha256": "fa548c2ba6ef51311124762abb6eab90bc472b61af825ad1fac39a1e504a55fd",
+      "sri": "sha384-CrfNyKRTuv4LBgSqm/JweJ+SZEkdWFH73Wl6y7Kkqy0FJYXgE5/arv43M2ZDfI/Y"
+    }
+  },
+  "modules": 279
+}
+   Compiling objc2-exception-helper v0.1.1
+   Compiling ring v0.17.14
+   Compiling objc2 v0.6.4
+   Compiling block2 v0.6.2
+   Compiling objc2-core-foundation v0.3.2
+   Compiling objc2-foundation v0.3.2
+   Compiling objc2-core-graphics v0.3.2
+   Compiling dispatch2 v0.3.1
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling objc2-app-kit v0.3.2
+   Compiling objc2-web-kit v0.3.2
+   Compiling wry v0.55.1
+   Compiling tauri-runtime v2.11.1
+   Compiling muda v0.19.1
+   Compiling tao v0.35.2
+   Compiling tauri-runtime-wry v2.11.1 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry)
+warning: unused variable: `err`
+ --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/dialog/mod.rs:8:29
+  |
+8 | pub fn error<S: AsRef<str>>(err: S) {
+  |                             ^^^ help: if this is intentional, prefix it with an underscore: `_err`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:27:7
+   |
+27 |       unsafe { sheet.setAlphaValue(0.5) };
+   |       ^^^^^^ unnecessary `unsafe` block
+   |
+   = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:28:7
+   |
+28 |       unsafe { ns_window.beginSheet_completionHandler(&sheet, None) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:29:36
+   |
+29 |     } else if let Some(attached) = unsafe { ns_window.attachedSheet() } {
+   |                                    ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:30:7
+   |
+30 |       unsafe { ns_window.endSheet(&attached) };
+   |       ^^^^^^ unnecessary `unsafe` block
+
+warning: unnecessary `unsafe` block
+  --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/window/macos.rs:36:5
+   |
+36 |     unsafe { ns_window.attachedSheet() }.is_none()
+   |     ^^^^^^ unnecessary `unsafe` block
+
+warning: function `error` is never used
+ --> /Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/vendor/tauri-runtime-wry/src/dialog/mod.rs:8:8
+  |
+8 | pub fn error<S: AsRef<str>>(err: S) {
+  |        ^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tauri-runtime-wry` (lib) generated 7 warnings (run `cargo fix --lib -p tauri-runtime-wry` to apply 1 suggestion)
+   Compiling tray-icon v0.23.1
+   Compiling window-vibrancy v0.6.0
+   Compiling tauri v2.11.1
+   Compiling rustls v0.23.40
+   Compiling rustls-webpki v0.103.13
+   Compiling zstd-safe v7.2.4
+   Compiling zstd v0.13.3
+   Compiling include-flate-compress v0.3.4
+   Compiling libsqlite3-sys v0.38.2
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-rustls v0.27.9
+   Compiling include-flate-codegen v0.3.4
+   Compiling include-flate v0.3.4
+   Compiling jieba-rs v0.10.3
+   Compiling rusqlite v0.40.2
+warning: tauri-plugin-native-editor@0.1.0: In file included from native/editor.m:6:
+warning: tauri-plugin-native-editor@0.1.0: native/candidates-bridge.h:71:54: warning: comparison of integers of different signs: 'CFIndex' (aka 'long') and 'const NSUInteger' (aka 'const unsigned long') [-Wsign-compare]
+warning: tauri-plugin-native-editor@0.1.0:    71 |     if(messageID!=1 || !data || CFDataGetLength(data)>SumiCandidateMessageLimit)return NULL;
+warning: tauri-plugin-native-editor@0.1.0:       |                                 ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: tauri-plugin-native-editor@0.1.0: 1 warning generated.
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling tauri-plugin-fs v2.5.1
+   Compiling objc2-osa-kit v0.3.2
+   Compiling reqwest v0.12.28
+   Compiling write-core v0.1.0 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/write-core)
+   Compiling osakit v0.3.1
+   Compiling reqwest v0.13.3
+   Compiling os_info v3.14.0
+   Compiling rfd v0.16.0
+   Compiling global-hotkey v0.8.0
+   Compiling arboard v3.6.1
+   Compiling objc2-contacts v0.3.2
+   Compiling notemd v6.1119.2 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src-tauri)
+   Compiling tauri-plugin-updater v2.10.1
+   Compiling tauri-plugin-os v2.3.2
+   Compiling tauri-plugin-http v2.5.9
+   Compiling objc2-core-location v0.3.2
+   Compiling tauri-plugin-clipboard-manager v2.3.2
+   Compiling tauri-plugin-global-shortcut v2.3.2
+   Compiling habitat-core v0.1.0 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/habitat-core)
+   Compiling tauri-plugin-opener v2.5.4
+   Compiling tauri-plugin-dialog v2.7.1
+   Compiling searchidx v0.1.0 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/searchidx)
+   Compiling sumi-protocol v0.1.0 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/sumi-protocol)
+   Compiling tauri-plugin-store v2.4.3
+   Compiling tauri-plugin-process v2.3.1
+   Compiling tauri-plugin-deep-link v2.4.9
+   Compiling tauri-plugin-window-state v2.4.1
+   Compiling tauri-plugin-native-editor v0.1.0 (/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/tauri-plugin-native-editor)
+   Compiling tauri-plugin-single-instance v2.4.2
+warning: struct `Observed` is never constructed
+ --> src/sumi/external.rs:9:19
+  |
+9 | pub(super) struct Observed {
+  |                   ^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated items `read` and `pair` are never used
+  --> src/sumi/external.rs:14:12
+   |
+13 | impl Observed {
+   | ------------- associated items in this implementation
+14 |     pub fn read(md: &Path, meta: &Path) -> Result<Self> {
+   |            ^^^^
+...
+34 |     pub fn pair(&self) -> Result<FilePair> {
+   |            ^^^^
+
+warning: function `current_block` is never used
+   --> src/smart_lookup.rs:319:15
+    |
+319 | pub(crate) fn current_block(root: &Path, hit: &CanonicalHit) -> Result<String, String> {
+    |               ^^^^^^^^^^^^^
+
+warning: `notemd` (lib) generated 3 warnings
+    Finished `release` profile [optimized] target(s) in 3m 53s
+       Built application at: /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/notemd
+    Bundling note.md.app (/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app)
+     Signing with identity "Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)"
+Signing with identity "Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)"
+Signing /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd
+/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd: replacing existing signature
+Signing with identity "Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)"
+Signing /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app
+/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app: replacing existing signature
+Signing with identity "Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)"
+Signing /var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/.tmpPjGydU/note.md.zip
+Notarizing /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app
+Notarizing Finished with status Accepted for id 4ff56aea-966d-4222-81d8-331d8f4fb929 (Processing complete)
+Stapling app...
+    Bundling note.md_6.1119.2_aarch64.dmg (/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/note.md_6.1119.2_aarch64.dmg)
+     Running bundle_dmg.sh
+     Signing with identity "Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)"
+Signing with identity "Developer ID Application: Wuhan Fulin Technology Co., Ltd. (T5G56DH47L)"
+Signing /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/note.md_6.1119.2_aarch64.dmg
+    Bundling /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app.tar.gz (/Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app.tar.gz)
+    Finished 2 bundles at:
+        /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app
+        /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/note.md_6.1119.2_aarch64.dmg
+        /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app.tar.gz (updater)
+
+    Finished 1 updater signature at:
+        /Users/bruce/git/mdeditor/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app.tar.gz.sig
+
+[1;34m▸[0m notarizing distributable DMG for aarch64
+Conducting pre-submission checks for note.md-6.1119.2-aarch64.dmg and initiating connection to the Apple notary service...
+Submission ID received
+  id: 65c0bb68-8c7b-4c9e-ab41-3e15e2add859
+Successfully uploaded file
+  id: 65c0bb68-8c7b-4c9e-ab41-3e15e2add859
+  path: /tmp/note.md-6.1119.2-aarch64.dmg
+Waiting for processing to complete.
+Current status: In Progress...Current status: In Progress....Current status: In Progress.....Current status: Accepted......Processing complete
+  id: 65c0bb68-8c7b-4c9e-ab41-3e15e2add859
+  status: Accepted
+
+Processing: /tmp/note.md-6.1119.2-aarch64.dmg
+Processing: /tmp/note.md-6.1119.2-aarch64.dmg
+The staple and validate action worked!
+Processing: /tmp/note.md-6.1119.2-aarch64.dmg
+The validate action worked!
+/tmp/note.md-6.1119.2-aarch64.dmg: valid on disk
+/tmp/note.md-6.1119.2-aarch64.dmg: satisfies its Designated Requirement
+/tmp/note.md-6.1119.2-aarch64.dmg: accepted
+source=Notarized Developer ID
+    aarch64 arch verified: binary is arm64
+    aarch64 location entitlement verified
+    aarch64 Apple Events entitlement verified
+[1;34m▸[0m re-signing updater tarball for aarch64 (post-notarize bytes)
+$ tauri signer sign /tmp/note.md-aarch64.app.tar.gz
+    aarch64 updater signature verified against app pubkey
+    aarch64 done: dmg= 15M, tarball= 15M
+{"preserved":[],"status":" M CHANGELOG.md\u0000 M CHANGELOG.zh-CN.md\u0000 M package.json\u0000 M src-tauri/Cargo.lock\u0000 M src-tauri/Cargo.toml\u0000 M src-tauri/tauri.conf.json\u0000"}
+[1;34m▸[0m committing v6.1119.2
+[main 8b811a5a] chore: release v6.1119.2
+ 6 files changed, 8 insertions(+), 6 deletions(-)
+[1;34m▸[0m pushing to origin
+To https://github.com/wizlijun/note.md.git
+   f1625169..8b811a5a  main -> main
+To https://github.com/wizlijun/note.md.git
+ * [new tag]           v6.1119.2 -> v6.1119.2
+[1;34m▸[0m creating GitHub release
+    manifest: /tmp/latest.json
+https://github.com/wizlijun/note.md/releases/tag/untagged-fb9c065e718a04e84206
+[1;32m✓[0m draft ready: https://github.com/wizlijun/note.md/releases/tag/untagged-fb9c065e718a04e84206
+Run scripts/release-publish.sh v6.1119.2 --mac-arm64-only

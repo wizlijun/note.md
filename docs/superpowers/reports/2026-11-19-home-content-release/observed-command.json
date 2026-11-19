@@ -1,0 +1,23 @@
+{
+  "preBumpCommit": "f1625169fe82c69c7955b0cb00677f96488cb986",
+  "command": [
+    "bash",
+    "scripts/release.sh",
+    "6.1119.2",
+    "--arm64-only",
+    "--fcitx5-package",
+    "/Users/bruce/git/mdeditor/tasks/vault-reveal-fix-20261117/host/Fcitx5-for-Sumi-0.5.0.15-arm64.pkg"
+  ],
+  "environment": {
+    "NOTEMD_EMPTY_ENV_DIR": "/Users/bruce/git/mdeditor/tasks/release-2026-11-19-evidence/empty-env",
+    "RUSTUP_TOOLCHAIN": "1.99.0",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_NET_OFFLINE": "true",
+    "CARGO_TARGET_DIR": "/Users/bruce/git/mdeditor/src-tauri/target"
+  },
+  "startedAt": "2026-11-19T10:35:49.737890+00:00",
+  "source": "/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source"
+}

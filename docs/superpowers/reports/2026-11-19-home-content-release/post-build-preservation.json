@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-11-19T11:05:20.877789+00:00",
+  "frozenReleaseCommit": "8b811a5a31f7ba288063705bc5386b09b6f7261f",
+  "preservedExcludedFiles": [
+    {
+      "path": "searchidx/src/store.rs",
+      "sha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "unchanged": true
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "sha256": "ac84b2e79ad8ab3051b5a1bb7aa1318365b33e98307be72a5f230a4fe40ca8f3",
+      "unchanged": true
+    },
+    {
+      "path": "output/design/home-app-shortcuts-concept.png",
+      "sha256": "3a251826cc1c15ecd0b26cb0856e574ee182a89dcd60a642e0c721076f2bb669",
+      "unchanged": true
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v2.png",
+      "sha256": "b6e39cbed5163df28d67d5389238fc7aebfe99b43866e2b81edf3ec3ac19bd7e",
+      "unchanged": true
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v3-light-dark.png",
+      "sha256": "eac8919a01a0b62fc11864018729d8fa650eee0e312f686fb959bc29dabe87aa",
+      "unchanged": true
+    }
+  ],
+  "stash": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c",
+  "scope": "Original unrelated edits/design files/stash preserved; no App/Vault installation or mutation."
+}

@@ -1,0 +1,58 @@
+{
+  "status": "PASS",
+  "verifiedAt": "2026-11-19T11:04:37.079049+00:00",
+  "version": "6.1119.2",
+  "sourceCommit": "8b811a5a31f7ba288063705bc5386b09b6f7261f",
+  "acceptedImplementation": "f1625169fe82c69c7955b0cb00677f96488cb986",
+  "acceptedSourceFiles": 57,
+  "acceptedDeletedFiles": [
+    "src-tauri/src/latest_files.rs",
+    "src/lib/latest-menu.test.ts",
+    "src/lib/latest-menu.ts"
+  ],
+  "recordedSourceFiles": 62,
+  "embeddedAssets": 209,
+  "compiledRoles": 15,
+  "compiledSlotBindings": [
+    {
+      "asset": "App-Idaii5aO.js",
+      "constant": "Ib",
+      "default": "pins:Array(Ib).fill(null)",
+      "value": 8
+    }
+  ],
+  "compiledCollapsedRows": [
+    {
+      "asset": "App-Idaii5aO.js",
+      "constant": "s",
+      "value": 3,
+      "binding": "const s=3,o=me(()=>[{kind:\"new\",title:p(\"homeContent.new\")",
+      "thresholdAndSliceUseConstant": true
+    }
+  ],
+  "updaterEntireAppFilesIdentical": 7,
+  "dmgEntireAppFilesIdentical": 7,
+  "verificationCommands": 17,
+  "appBinary": {
+    "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+    "bytes": 23506384,
+    "sha256": "f103f8583f492bfc74f25ce09ff1d17d3005dbc5fef8dfaa5be06ab0066e96ae"
+  },
+  "dmg": {
+    "path": "/Users/bruce/git/mdeditor/tasks/release-2026-11-19-evidence/verification/host/note.md-6.1119.2-aarch64.dmg",
+    "bytes": 15912199,
+    "sha256": "b9e069c553d9b3481b9d457b0b92013c168ae806637edee24fbe1453e3ce9582",
+    "mach_o_sha256": "f103f8583f492bfc74f25ce09ff1d17d3005dbc5fef8dfaa5be06ab0066e96ae",
+    "mach_o_bytes": 23506384,
+    "app_version": "6.1119.2",
+    "app_identifier": "net.notemd.app",
+    "candidate_and_updater_byte_identical": true,
+    "mount_readonly": true,
+    "detached_device": "/dev/disk8s1"
+  },
+  "appleAppSubmissionId": "4ff56aea-966d-4222-81d8-331d8f4fb929",
+  "appleDmgSubmissionId": "65c0bb68-8c7b-4c9e-ab41-3e15e2add859",
+  "fixtureTests": 19,
+  "artifactVerificationLogSha256": "33ea2bd4d6a1437ff94f13fb14d34752ccb89b27001ca52965702ab6729b561c",
+  "boundary": "Actual signed clean-build App, downloaded six GitHub draft artifacts, frozen tag/source, all whole embedded dist assets, current Apple Accepted archive SHA/CDHash, complete DMG/updater App identity, architecture, entitlements, Gatekeeper/stapler and Minisign checks passed. No App launch, installation, user Vault access, physical IME interaction or publication; not an independent bit-reproducible rebuild."
+}

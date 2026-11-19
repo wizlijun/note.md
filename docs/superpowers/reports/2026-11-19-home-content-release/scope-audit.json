@@ -1,0 +1,449 @@
+{
+  "capturedAt": "2026-11-19T10:34:32.219369+00:00",
+  "status": "PASS_SCOPE_ONLY",
+  "head": "f1625169fe82c69c7955b0cb00677f96488cb986",
+  "lastPublishedHostTag": "v6.1119.1",
+  "lastPublishedHostCommit": "c391032e80d294c8e941b041e0987e8b9555923f",
+  "latestReleaseVerifiedUsing": "gh release list --limit 8 --json tagName,isDraft,isLatest,publishedAt",
+  "worktrees": [
+    {
+      "path": "/Users/bruce/git/mdeditor",
+      "head": "f1625169fe82c69c7955b0cb00677f96488cb986",
+      "branch": "refs/heads/main",
+      "status": [
+        "M searchidx/src/store.rs",
+        " M src-tauri/src/smart_lookup.rs",
+        "?? output/design/home-app-shortcuts-concept.png",
+        "?? output/design/home-app-shortcuts-v2.png",
+        "?? output/design/home-app-shortcuts-v3-light-dark.png"
+      ]
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/.worktrees/home-apps",
+      "head": "9b4b42723ad658aec5aa2893e35e6df9e0f1e089",
+      "branch": "refs/heads/feat/home-app-shortcuts",
+      "status": []
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/.worktrees/home-content",
+      "head": "cec32c829a1148cc3305f7b1a134f9af1cf3f1e7",
+      "branch": "refs/heads/feat/home-content",
+      "status": []
+    },
+    {
+      "path": "/Users/bruce/git/mdeditor/.worktrees/safari-home",
+      "head": "69e4f92c0a1c11d3e45974fb479bbd0ccff27bd8",
+      "branch": "refs/heads/feat/safari-home",
+      "status": []
+    }
+  ],
+  "localBranches": [
+    {
+      "branch": "feat/home-app-shortcuts",
+      "unmergedCommits": [],
+      "patchEquivalence": []
+    },
+    {
+      "branch": "feat/home-content",
+      "unmergedCommits": [],
+      "patchEquivalence": []
+    },
+    {
+      "branch": "feat/safari-home",
+      "unmergedCommits": [],
+      "patchEquivalence": []
+    },
+    {
+      "branch": "main",
+      "unmergedCommits": [],
+      "patchEquivalence": []
+    }
+  ],
+  "stash": {
+    "name": "stash@{0}",
+    "commit": "03d8a9ff3cc5c25552040fda41a2531ee3c1ac5c",
+    "subject": "On main: codex-before-git-pull-2026-11-10",
+    "tracked": [
+      {
+        "path": "CHANGELOG.md",
+        "stashSha256": "9c8f21eea77ab0e83010153a86d201300839f179a9faaa50cf615c53d41cb6a9",
+        "headSha256": "6b4a7fb6bad4b2315b5f61155566896bdf3becb392e83a6aea91d32b1c4090a1",
+        "lastReleaseSha256": "e7b23e27319a1c40e3f814741f2e0e2019aa1895bfc01cafed4d4bdfa358093d",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": false,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "CHANGELOG.zh-CN.md",
+        "stashSha256": "b48a020a496cd3d8702ba1317104d51a04ada36482db93334c4f120a31013112",
+        "headSha256": "30bb371c77e33b8b0c279b506ab76f8d0d82aa8183e9ae5706fc652c60886da3",
+        "lastReleaseSha256": "430a56df5d87a709f9ca76a60641d6f6ef8da1100f367b72d05ef1a4a7063e30",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": false,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-07-immersive-write-design.md",
+        "stashSha256": "74fc432eb6ba2475103fd84bebf722640a0b5814325e1bacd79102b7dc39a65a",
+        "headSha256": "b12a2fbbd609071a87ad6c4760aa316e6257b0deb06173e3ebbcca8e9f41955c",
+        "lastReleaseSha256": "b12a2fbbd609071a87ad6c4760aa316e6257b0deb06173e3ebbcca8e9f41955c",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "plugins-src/write/src/contract.ts",
+        "stashSha256": "14b1320cbf8245036a58156e8ec996d125c614a948ca0717d499965167ac1cb2",
+        "headSha256": "1b70ab6cf48efdfde72bf6819be52a93876438f8482513cd96d98a45342fae9d",
+        "lastReleaseSha256": "1b70ab6cf48efdfde72bf6819be52a93876438f8482513cd96d98a45342fae9d",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "plugins-src/write/src/main.test.ts",
+        "stashSha256": "bb2af06130631fc802b95b4c45444e6f2fd0c9e093b789568e5f1c132f270f6a",
+        "headSha256": "0097379a2eebcac505d03f7fd5fbc65af499a966a89ce8ec30fa149677d8e3c7",
+        "lastReleaseSha256": "0097379a2eebcac505d03f7fd5fbc65af499a966a89ce8ec30fa149677d8e3c7",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "plugins-src/write/src/main.ts",
+        "stashSha256": "67a20ac06bb16c6f02788c4f52eba0e31d4f9bc6112a44840350a11833f3e708",
+        "headSha256": "2a791a3f56182dd692adca9418dcc76e72c5cc1ece7da90a1ae70d178976e87b",
+        "lastReleaseSha256": "2a791a3f56182dd692adca9418dcc76e72c5cc1ece7da90a1ae70d178976e87b",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "plugins-src/write/src/style.css",
+        "stashSha256": "d412a6f8ecf6d3f88ca08cc14b96674b2ef175ecba52d62a1d4682500835ea19",
+        "headSha256": "b72cf866f88447066cc2fcf466b4cc7bcb61b1fda9d42e3a4f6742004732ae29",
+        "lastReleaseSha256": "b72cf866f88447066cc2fcf466b4cc7bcb61b1fda9d42e3a4f6742004732ae29",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "scripts/sumi/build.mjs",
+        "stashSha256": "0c08a5653770b1afbc3dffa658ec52057f05002b54b782b1e9bdbbf6e8e6dfc2",
+        "headSha256": "0c08a5653770b1afbc3dffa658ec52057f05002b54b782b1e9bdbbf6e8e6dfc2",
+        "lastReleaseSha256": "0c08a5653770b1afbc3dffa658ec52057f05002b54b782b1e9bdbbf6e8e6dfc2",
+        "stashMatchesHead": true,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "scripts/sumi/native/build.rs",
+        "stashSha256": "8b666790ec393c8b860ad49ab1efd78a1e1181c5d10eafa96306b2dfd225f8f1",
+        "headSha256": "8b666790ec393c8b860ad49ab1efd78a1e1181c5d10eafa96306b2dfd225f8f1",
+        "lastReleaseSha256": "8b666790ec393c8b860ad49ab1efd78a1e1181c5d10eafa96306b2dfd225f8f1",
+        "stashMatchesHead": true,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "scripts/sumi/run-native.mjs",
+        "stashSha256": "10acce3427c6bc39b31b3a5dadc1910f1f56ca6820236270490220cbef177fd3",
+        "headSha256": "10acce3427c6bc39b31b3a5dadc1910f1f56ca6820236270490220cbef177fd3",
+        "lastReleaseSha256": "10acce3427c6bc39b31b3a5dadc1910f1f56ca6820236270490220cbef177fd3",
+        "stashMatchesHead": true,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "scripts/sumi/verify-release.py",
+        "stashSha256": "e47247eb7fcdd0e14ff61663059f62da4bb8ed3965720c59fb9bd4b6e6236c7f",
+        "headSha256": "a0e4ca12bd21e377fd99ea9be51ef46a58a55acfbf2679244d4417f2c1e66a10",
+        "lastReleaseSha256": "a0e4ca12bd21e377fd99ea9be51ef46a58a55acfbf2679244d4417f2c1e66a10",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "searchidx/src/store.rs",
+        "stashSha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+        "headSha256": "25a82158ccdab0aa10b259d23522411da1085b9e036ca598a0031973d0c3de01",
+        "lastReleaseSha256": "25a82158ccdab0aa10b259d23522411da1085b9e036ca598a0031973d0c3de01",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "src-tauri/src/smart_lookup.rs",
+        "stashSha256": "dc9eede6d18bcb464513e15f3ed28f3a4c23d86b9cc6a4dc21d0649d998d20d0",
+        "headSha256": "9abe211e9c6267f9f744ad5b4d7fdf94a00d9599dc185af7e378e3b911d4dc48",
+        "lastReleaseSha256": "9abe211e9c6267f9f744ad5b4d7fdf94a00d9599dc185af7e378e3b911d4dc48",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "src-tauri/src/sumi/mod.rs",
+        "stashSha256": "13b7cc752cef8970f2d007d85658e1ad9b89e084c4375485a92d1ea41906655d",
+        "headSha256": "1394483fd7085eb60996cf0e8b9a630515212ac1b41b53685d78ba096503c785",
+        "lastReleaseSha256": "a9006777c76e97e9cd9d48daecb2ee5ee616e17f8a064204fe29134d3c6f3bb8",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": false,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "tauri-plugin-native-editor/build.rs",
+        "stashSha256": "acca2d55035cd7995c56af402eae12ee14f568a53bcd09595f34e903a7516ac4",
+        "headSha256": "b1218e78ed119fd7a126a26ed8bc86989b172ae6542dfdb1577b7e5ac3e872c6",
+        "lastReleaseSha256": "b1218e78ed119fd7a126a26ed8bc86989b172ae6542dfdb1577b7e5ac3e872c6",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "tauri-plugin-native-editor/native/editor.m",
+        "stashSha256": "ff33a80a13f468b6290e13626ad8cfe943ec5d0d2d6dbb5d0de4286294ace4cb",
+        "headSha256": "e01212cbd5d341a70bf6f3737f8dc38900a15431d8b2d99bc1cdec05ce0bf29c",
+        "lastReleaseSha256": "e01212cbd5d341a70bf6f3737f8dc38900a15431d8b2d99bc1cdec05ce0bf29c",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      },
+      {
+        "path": "tauri-plugin-native-editor/src/lib.rs",
+        "stashSha256": "45c8e5bf94ab858e8fade895e8cf393227b13dec98564d63a34ae4cd46f808bd",
+        "headSha256": "394bff0af376f9f98534c4f8437cf9e72566fcb2f6342ba924b0ad11e99200ff",
+        "lastReleaseSha256": "394bff0af376f9f98534c4f8437cf9e72566fcb2f6342ba924b0ad11e99200ff",
+        "stashMatchesHead": false,
+        "headMatchesLastRelease": true,
+        "decision": "exclude stash; keep current implementation"
+      }
+    ],
+    "untrackedParent": [
+      {
+        "path": "tauri-plugin-native-editor/native/focus-probe.m",
+        "stashSha256": "3fb4c76816015e6c42595900694001f92b446e72552ad919fd2145583b7f8303",
+        "headSha256": "3832e9d0068efc3171625ae30eb68a20759a2c409817a9bfc36f1d929f50310b",
+        "headMatchesLastRelease": true,
+        "stashMatchesHead": false,
+        "decision": "exclude earlier focus draft; current committed implementation supersedes"
+      },
+      {
+        "path": "tauri-plugin-native-editor/native/focus.h",
+        "stashSha256": "f4eba56e6b01a4b29a6e21356b2f30db118ec0ce12c34721ba3065b5ddd6f1f5",
+        "headSha256": "d53a35fb70d69930614f1889f47bdaa2524edf928ce0aaeba4a9b75352819581",
+        "headMatchesLastRelease": true,
+        "stashMatchesHead": false,
+        "decision": "exclude earlier focus draft; current committed implementation supersedes"
+      }
+    ],
+    "indexDeltaFiles": [],
+    "decision": "retain untouched, do not restore/drop; actual feature comparison documented below"
+  },
+  "existingDirty": [
+    {
+      "path": "searchidx/src/store.rs",
+      "worktreeSha256": "0347b617800f1d322e385043c1fdf452f4988cd4f937380b5e697d74dcee4cc4",
+      "headSha256": "25a82158ccdab0aa10b259d23522411da1085b9e036ca598a0031973d0c3de01",
+      "onlyFinalNewlineRemoved": true,
+      "matchesStashBlob": true,
+      "decision": "preserve uncommitted, exclude from release input"
+    },
+    {
+      "path": "src-tauri/src/smart_lookup.rs",
+      "worktreeSha256": "ac84b2e79ad8ab3051b5a1bb7aa1318365b33e98307be72a5f230a4fe40ca8f3",
+      "headSha256": "9abe211e9c6267f9f744ad5b4d7fdf94a00d9599dc185af7e378e3b911d4dc48",
+      "onlyFinalNewlineRemoved": true,
+      "matchesStashBlob": false,
+      "decision": "preserve uncommitted, exclude from release input"
+    }
+  ],
+  "untrackedOutput": [
+    {
+      "path": "output/design/home-app-shortcuts-concept.png",
+      "bytes": 1243254,
+      "sha256": "3a251826cc1c15ecd0b26cb0856e574ee182a89dcd60a642e0c721076f2bb669",
+      "decision": "exclude untracked design concept image"
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v2.png",
+      "bytes": 1573816,
+      "sha256": "b6e39cbed5163df28d67d5389238fc7aebfe99b43866e2b81edf3ec3ac19bd7e",
+      "decision": "exclude untracked design concept image"
+    },
+    {
+      "path": "output/design/home-app-shortcuts-v3-light-dark.png",
+      "bytes": 1600337,
+      "sha256": "eac8919a01a0b62fc11864018729d8fa650eee0e312f686fb959bc29dabe87aa",
+      "decision": "exclude untracked design concept image"
+    }
+  ],
+  "commitsSinceLastHostRelease": [
+    "f1625169fe82c69c7955b0cb00677f96488cb986 Merge origin/main, preserving home activity and editor input recovery",
+    "69e4f92c0a1c11d3e45974fb479bbd0ccff27bd8 feat: organize home into Safari-style sections",
+    "1e3e1197154aa77dbccb317a266154ee79a63e8e fix(editor): report blocked input and preserve recoverable drafts",
+    "f1aef1871f7e8b60a1a12106e05dbe2c43d9cbad fix: show four home suggestions before expanding",
+    "426a65dca8c8a3ef68e88178f705e4ea09a0269c fix: compact home lists with five-row previews",
+    "cec32c829a1148cc3305f7b1a134f9af1cf3f1e7 feat: add unread content and meaningful reading to home",
+    "46dd93e27734e3eafec781254bb85174614559bc fix(editor): recover IME state after native pointer interactions",
+    "d2fa0b9edbbd5b833b67c7d7138c9e653ddb9f6f Merge branch 'main' of github.com:wizlijun/note.md",
+    "da11ca148ac3af3026dcfb663f08ec6dc6706000 docs: record published host and anonymous update verification",
+    "47e0832d0dc09c5a4a36bb8af940fada9d7ccf2b docs: verify signed homepage host release artifacts",
+    "0c11629f976226c688d186b13d4812da31073dc2 docs: design and phase 0 plan for extracting Sumi Write"
+  ],
+  "changedFilesSinceLastHostRelease": [
+    "CHANGELOG.md",
+    "CHANGELOG.zh-CN.md",
+    "docs/superpowers/plans/2026-11-18-sumiwrite-phase0-docs.md",
+    "docs/superpowers/plans/2026-11-19-home-app-shortcuts-host-release.md",
+    "docs/superpowers/reports/2026-11-19-editor-session-ime-recovery.md",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/artifact-verification.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/build-inputs-candidate.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/build-provenance.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/evidence-files.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/finalize-provenance.py",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/host-assets.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/notary-app-submitted-archive.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/notary-dmg-submitted-archive.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/post-release-preservation.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/publish-receipt.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/published-release.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/release-build-prepublish.log",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/release-verification.md",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/review-final.md",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/app-apple-notary-log.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/app-notary-binding.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/artifact-summary.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/artifact-verification-first-cdhash-verbosity.log",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/artifact-verification-temp-enospc.log",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/artifact-verification.log",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/dmg-apple-notary-log.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/dmg-notary-binding.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/environment-space-check.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/fixture-tests.log",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/frozen-source.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/home_checks.py",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/main-draft-download-sha.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-host-full-browser-verification.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-host-full-browser.log",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-readback/receipts/Fcitx5-for-Sumi-0.5.0.15-arm64.pkg.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-readback/receipts/fcitx5-companion.json.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-readback/receipts/latest.json.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-readback/receipts/note.md-6.1119.1-aarch64.dmg.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-readback/receipts/note.md-aarch64.app.tar.gz.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-readback/receipts/note.md-aarch64.app.tar.gz.sig.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/public-summary.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/release-draft-at-verification.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/test_home_checks.py",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/test_public_host.py",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/updater-endpoint-verification.json",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/verify-host.py",
+    "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/verification/verify-public-host-full.py",
+    "docs/superpowers/reports/2026-11-19-home-content-compact/compact-narrow-dark.png",
+    "docs/superpowers/reports/2026-11-19-home-content-compact/compact-wide-light.png",
+    "docs/superpowers/reports/2026-11-19-home-content-compact/validation.json",
+    "docs/superpowers/reports/2026-11-19-home-content-compact/verification.json",
+    "docs/superpowers/reports/2026-11-19-home-content/README.md",
+    "docs/superpowers/reports/2026-11-19-home-content/backend-final-review.json",
+    "docs/superpowers/reports/2026-11-19-home-content/backend-menu-verification.json",
+    "docs/superpowers/reports/2026-11-19-home-content/backend-verification.json",
+    "docs/superpowers/reports/2026-11-19-home-content/home-narrow-dark.png",
+    "docs/superpowers/reports/2026-11-19-home-content/home-narrow-light.png",
+    "docs/superpowers/reports/2026-11-19-home-content/home-wide-dark.png",
+    "docs/superpowers/reports/2026-11-19-home-content/home-wide-light.png",
+    "docs/superpowers/reports/2026-11-19-home-content/save-failure.png",
+    "docs/superpowers/reports/2026-11-19-home-content/validation.json",
+    "docs/superpowers/reports/2026-11-19-home-content/verification.json",
+    "docs/superpowers/reports/2026-11-19-safari-home/README.md",
+    "docs/superpowers/reports/2026-11-19-safari-home/document-validation.json",
+    "docs/superpowers/reports/2026-11-19-safari-home/footer-error.png",
+    "docs/superpowers/reports/2026-11-19-safari-home/home-1100-dark.png",
+    "docs/superpowers/reports/2026-11-19-safari-home/home-320-dark.png",
+    "docs/superpowers/reports/2026-11-19-safari-home/home-320-de-edit.png",
+    "docs/superpowers/reports/2026-11-19-safari-home/home-preview-light.png",
+    "docs/superpowers/reports/2026-11-19-safari-home/menu-hover.png",
+    "docs/superpowers/reports/2026-11-19-safari-home/review.json",
+    "docs/superpowers/reports/2026-11-19-safari-home/validation.json",
+    "docs/superpowers/reports/2026-11-19-safari-home/verification.json",
+    "docs/superpowers/specs/2026-11-18-sumiwrite-extraction-design.md",
+    "docs/superpowers/specs/2026-11-19-home-app-shortcuts-design.md",
+    "docs/superpowers/specs/2026-11-19-home-content-design.md",
+    "docs/superpowers/specs/2026-11-19-safari-home-layout.md",
+    "src-tauri/src/home_content.rs",
+    "src-tauri/src/latest_files.rs",
+    "src-tauri/src/lib.rs",
+    "src-tauri/src/sumi/mod.rs",
+    "src/App.svelte",
+    "src/components/BaseView.svelte",
+    "src/components/CsvEditor.svelte",
+    "src/components/CustomEditorIframe.svelte",
+    "src/components/EditorPane.svelte",
+    "src/components/EmptyState.svelte",
+    "src/components/EmptyState.test.ts",
+    "src/components/FileInputTransitions.test-harness.svelte",
+    "src/components/FileInputTransitions.test.ts",
+    "src/components/HomeApps.svelte",
+    "src/components/HomeApps.test.ts",
+    "src/components/HomeContent.svelte",
+    "src/components/HomeContent.test.ts",
+    "src/components/SourceView.svelte",
+    "src/components/TabBar.svelte",
+    "src/components/VaultOverview.svelte",
+    "src/components/VaultOverview.test.ts",
+    "src/components/canvas/CanvasView.svelte",
+    "src/components/outline/OutlineEditor.svelte",
+    "src/editor-kit-v2/file-controller.test.ts",
+    "src/editor-kit-v2/file-controller.ts",
+    "src/editor-kit-v2/file-flush-blocking.test.ts",
+    "src/editor-kit-v2/file-ime-recovery.test.ts",
+    "src/editor-kit-v2/file-input-error.ts",
+    "src/editor-kit-v2/file-main.ts",
+    "src/editor-kit-v2/file-source-input.ts",
+    "src/lib/commands.ts",
+    "src/lib/context-menu/source-actions.ts",
+    "src/lib/editor-bridge.ts",
+    "src/lib/file-input-feedback.test.ts",
+    "src/lib/file-input-feedback.ts",
+    "src/lib/home-content/model.test.ts",
+    "src/lib/home-content/model.ts",
+    "src/lib/home-content/store.svelte.ts",
+    "src/lib/home-content/store.test.ts",
+    "src/lib/i18n/de.ts",
+    "src/lib/i18n/en.ts",
+    "src/lib/i18n/ja.ts",
+    "src/lib/i18n/zh.ts",
+    "src/lib/insights/observer.ts",
+    "src/lib/insights/tracker.activity.test.ts",
+    "src/lib/insights/tracker.svelte.ts",
+    "src/lib/latest-menu.test.ts",
+    "src/lib/latest-menu.ts",
+    "src/lib/note-anno/NoteEditPopup.svelte",
+    "src/lib/note-anno/NoteEditPopup.test.ts",
+    "src/lib/note-anno/note-ui.svelte.ts",
+    "src/lib/outline/store.svelte.ts",
+    "src/lib/outline/store.test.ts",
+    "src/lib/project-share/browser.test.ts",
+    "src/lib/project-share/browser.ts",
+    "src/lib/recent-sync.svelte.ts",
+    "src/lib/recent-sync.test.ts",
+    "src/lib/share-guest/update-boundary.test.ts",
+    "src/lib/tabs.svelte.ts",
+    "src/styles/home-apps.css"
+  ],
+  "include": [
+    "All current main tracked source and new release version/changelog once verified",
+    "Unread/meaningful reading and dismiss persistence, share open-in-app, Safari home layout",
+    "IME input recovery and source/annotation draft blocking feedback",
+    "Committed documentation and historical release evidence, without claiming they modify app behavior"
+  ],
+  "exclude": [
+    "Two EOF-only dirty Rust files",
+    "Three untracked output/design concepts",
+    "Legacy 2026-11-10 stash and all ignored tasks/worktree build products"
+  ],
+  "semanticStashAudit": {
+    "priorDetailedAudit": "docs/superpowers/reports/2026-11-19-home-app-shortcuts-release/scope-audit.md",
+    "evidence": "All stash-affected committed files except CHANGELOGs and src-tauri/src/sumi/mod.rs remain byte-identical to v6.1119.1. mod.rs delta since release is the authorized home-content real-edit event; changelogs contain newly authorized release behavior. Focus implementation from old stash has already been implemented and superseded, not an unmerged new feature. The current store.rs EOF-only file matches the stash blob; smart_lookup.rs has later committed business changes, so its full blob differs while the uncommitted delta is still only a missing final newline. No stash restoration is needed.",
+    "ancestorCheckAloneUsed": false
+  },
+  "boundaries": "Scope audit only. Does not prove build/signing/notarization or final artifact inclusion."
+}

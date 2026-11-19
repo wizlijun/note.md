@@ -1,0 +1,43 @@
+{
+  "capturedAt": "2026-11-19T10:37:53.696402+00:00",
+  "status": "REVIEWED_WITH_PREVERIFICATION_FOLLOWUP",
+  "files": [
+    "run-observed-release.py",
+    "finalize-provenance.py",
+    "verification/verify-host.py"
+  ],
+  "readOnlyReview": true,
+  "mainScriptsModified": false,
+  "findings": [
+    {
+      "severity": "followup-required-before-artifact-verification",
+      "topic": "DMG submission schema binding",
+      "detail": "Observer captures DMG archive path/bytes/hash/time but not submission_id; verify-host.py requires dmg_capture['submission_id']==args.dmg_submission_id.",
+      "action": "Resolve exact current submission ID from frozen release-build.log and bind it to this captured current pre-staple DMG record; Apple log SHA must match. No old job reuse."
+    },
+    {
+      "severity": "informational",
+      "topic": "Observation exception lifecycle",
+      "detail": "An unexpected observer exception does not terminate the child release subprocess. Finalize will reject missing evidence, but the child may continue creating a draft.",
+      "action": "If observer fails, explicitly inspect/reap the child and do not treat detached execution as observed. No need to interrupt successful current execution."
+    },
+    {
+      "severity": "optional-evidence-improvement",
+      "topic": "External build tools",
+      "detail": "Tracked source and dist hashes are captured and finalized, but actual PATH transport shim and executable tool versions are not recorded in the manifest. Local Moraya dist comparison is separately recorded.",
+      "action": "Record actual tool versions and transport shim hashes if adding environment provenance. Retain trusted-build/non-hermetic boundary."
+    }
+  ],
+  "positiveChecks": [
+    "Initial clean tracked checkout and origin/main equality",
+    "All tracked files captured and set equality checked by finalizer",
+    "Frozen tag equals clean HEAD and every captured file hash checked",
+    "Only six version/changelog files differ from pre-bump commit",
+    "Final dist map exactly equals captured compiled resources",
+    "Four staged host assets hashed and later matched to downloaded draft files",
+    "Native and frontend gate logs and original release exit required",
+    "Target checkout symlink resolves to explicitly configured shared CARGO_TARGET_DIR",
+    "App archive capture schema matches verify_app_archive_binding helper"
+  ],
+  "boundary": "Static review and offline fixture tests only; no build, notary, artifact, or public delivery approval inferred."
+}

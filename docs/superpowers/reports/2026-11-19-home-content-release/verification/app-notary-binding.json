@@ -1,0 +1,23 @@
+{
+  "submissionId": "4ff56aea-966d-4222-81d8-331d8f4fb929",
+  "status": "Accepted",
+  "appCDHash": "a1d9c19d023a70bdcfa88a4e9a458633516ac15c",
+  "ticketMatchesApp": true,
+  "appleSubmittedArchiveSha256": "018335ed59840bc775bd98a82d3629cc5da6e013ec65098f370d715b4804ed7a",
+  "stapledDownloadedSha256": null,
+  "shaBoundary": "Apple archive SHA is pre-staple and is not asserted equal to the post-staple download SHA; actual CDHash is bound to this Accepted ticket.",
+  "tickets": [
+    {
+      "path": "note.md.zip/note.md.app",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "a1d9c19d023a70bdcfa88a4e9a458633516ac15c",
+      "arch": "arm64"
+    },
+    {
+      "path": "note.md.zip/note.md.app/Contents/MacOS/notemd",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "a1d9c19d023a70bdcfa88a4e9a458633516ac15c",
+      "arch": "arm64"
+    }
+  ]
+}
