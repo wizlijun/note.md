@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- The File menu now keeps Recently Opened and New Content, removing Open History. Each home document list starts with 10 items and adds 10 per More click instead of rendering the entire list at once.
+
 ## v6.1119.2 — 2026-11-19
 
 - The desktop home page now separates unread new content from documents you edited or spent time reading. Process files are filtered from new content, brief previews do not crowd continuing reads, and each suggestion can be dismissed across restarts. The File menu uses the same suggestions and keeps unfiltered open history separately. Read-only shared pages now expose “Open in note.md” to continue in the app. The Safari-inspired layout combines built-in tools, pinned and frequent apps in two shortcut rows, followed by two document columns with three body previews and independent Show All controls, an AI suggestions layout area, and a compact status/settings footer.

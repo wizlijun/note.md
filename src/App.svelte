@@ -22,7 +22,7 @@
   import { openPath } from './lib/open-path'
   import { createNewBase } from './lib/base/create'
   import { basename } from './lib/paths'
-  import { loadSettings, settings, removeRecentFile } from './lib/settings.svelte'
+  import { loadSettings, settings } from './lib/settings.svelte'
   import { loadLocale, t, i18n } from './lib/i18n/store.svelte'
   import { cmdOpen, cmdSave, cmdSaveAs, cmdPrint, cmdCloseActive, cmdToggleMode, dispatch, type CommandId } from './lib/commands'
   import { cmdMdblockRefresh } from './lib/mdblock/commands'
@@ -710,7 +710,7 @@
 
       // Make dispatchPlugin reachable from other components (TabBar's right-click).
       setPluginDispatcher(dispatchPlugin)
-      // Populate the Open Recent menu now that settings (recentFiles) and the
+      // Populate DrawerNav open history now that settings (recentFiles) and the
       // vault root are loaded. installRecentsSync deliberately skips this — it
       // can run before loadSettings finishes.
       void refreshSotvault().then(async () => { await refreshGuests(sotvaultStore.vaultRoot); await refreshRecentMenu() }).catch((e) => console.warn('[App] recents init:', e))
@@ -812,12 +812,6 @@
       if (id.startsWith('open-continue:')) {
         try { await openFile(id.slice('open-continue:'.length)) }
         catch (error) { await showError(String(error)) }
-        return
-      }
-      if (id.startsWith('open-history:')) {
-        const path = id.slice('open-history:'.length)
-        try { await openFile(path) }
-        catch (error) { await removeRecentFile(path); await showError(String(error)) }
         return
       }
       switch (id) {

@@ -4,7 +4,6 @@ import type { Messages } from './en'
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
   "homeApps.commonFeatures": "よく使う機能",
-  "homeContent.showAll": "すべて表示",
   "homeAi.title": "AIの提案",
   "homeAi.empty": "提案がここに表示されます。",
   "homeContent.partial": "{count} 件を読み込めませんでした。リストが不完全な可能性があります。",
@@ -18,7 +17,6 @@ export const ja: Record<keyof Messages, string> = {
   "homeContent.error": "文書リストを更新できませんでした：{error}",
   "homeContent.retry": "再試行",
   "homeContent.more": "もっと見る",
-  "homeContent.less": "折りたたむ",
 
 
   "homeApps.pdfGuide": "まず Markdown または HTML の文書を開き、既存のメニューから「プラグイン → 読み込みと書き出し → PDF に書き出す…」を選んでください。",

@@ -2,7 +2,6 @@ import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
   "homeApps.commonFeatures": "Häufige Funktionen",
-  "homeContent.showAll": "Alle anzeigen",
   "homeAi.title": "KI-Vorschläge",
   "homeAi.empty": "Vorschläge werden hier angezeigt.",
   "homeContent.partial": "{count} Einträge konnten nicht gelesen werden. Diese Liste ist möglicherweise unvollständig.",
@@ -16,7 +15,6 @@ export const de: Record<keyof Messages, string> = {
   "homeContent.error": "Dokumentliste konnte nicht aktualisiert werden: {error}",
   "homeContent.retry": "Erneut versuchen",
   "homeContent.more": "Mehr",
-  "homeContent.less": "Weniger anzeigen",
 
 
   "homeApps.pdfGuide": "Öffnen Sie zuerst ein Markdown- oder HTML-Dokument und wählen Sie dann im bestehenden Menü „Plugins → Importieren & Exportieren → Als PDF exportieren…“.",

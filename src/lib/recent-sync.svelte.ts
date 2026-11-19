@@ -1,7 +1,5 @@
 import { readTextFile, writeTextFile, mkdir, readDir, exists } from '@tauri-apps/plugin-fs'
-import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { homeDir } from '@tauri-apps/api/path'
 import { hostname } from '@tauri-apps/plugin-os'
 import {
   getRecentFiles,
@@ -15,7 +13,6 @@ import {
   toSyncedEntry,
   resolveLocalRecents,
   mergeRecents,
-  formatRecentLabel,
   type DeviceRecents,
   type ResolvedRecent,
 } from './recent-merge'
@@ -23,7 +20,7 @@ import {
 const RECENTS_SUBDIR = '.notemd/recents'
 const PER_DEVICE_CAP = 20
 
-/** Merged recents (this device + every synced device). Read by the menu and DrawerNav. */
+/** Merged recents (this device + every synced device). Read by DrawerNav. */
 export const mergedRecents = $state<{ paths: string[] }>({ paths: [] })
 
 function recentsDir(vaultRoot: string): string {
@@ -69,30 +66,19 @@ export async function writeOwnDeviceFile(): Promise<void> {
   await writeTextFile(`${dir}/${deviceId}.json`, JSON.stringify(doc, null, 2))
 }
 
-/** Recompute the merged list and push it to the native menu. */
+/** Recompute the merged open history for DrawerNav. */
 export async function refreshRecentMenu(): Promise<void> {
   const vaultRoot = sotvaultStore.vaultRoot
   const devices = await readOtherDeviceFiles(vaultRoot)
   if (sotvaultStore.vaultRoot !== vaultRoot) return
   mergedRecents.paths = mergeRecents(localResolved(), devices, vaultRoot, [...getRecentTombstones()])
-  const home = await homeDir().catch(() => null)
-  if (sotvaultStore.vaultRoot !== vaultRoot) return
-  const items = mergedRecents.paths.map((p) => ({ path: p, label: formatRecentLabel(p, home) }))
-  try {
-    await invoke('update_recent_menu', { items, history: true })
-  } catch {
-    // No native menu on this platform (iOS); the DrawerNav still reads mergedRecents.
-  }
 }
 
 /**
  * Wire everything up. Call once on app mount.
  *
- * Note: this intentionally does NOT push the menu itself — it can run before
- * `loadSettings()` has populated `recentFiles`, and publishing an empty list
- * here would leave the File ▸ Open Recent menu stuck on its "No Recent Files"
- * placeholder. The caller must invoke `refreshRecentMenu()` once settings (and
- * the vault root) are loaded.
+ * Defer the initial refresh until settings and the vault root are loaded.
+ * The caller invokes `refreshRecentMenu()` after that initialization.
  *
  * Returns a cleanup function.
  */

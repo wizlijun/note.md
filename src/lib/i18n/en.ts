@@ -9,7 +9,6 @@
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
   "homeApps.commonFeatures": "Favorites",
-  "homeContent.showAll": "Show All",
   "homeAi.title": "AI suggestions",
   "homeAi.empty": "Suggestions will appear here.",
   "homeContent.partial": "{count} items could not be read. This list may be incomplete.",
@@ -23,7 +22,6 @@ export const en = {
   "homeContent.error": "Could not update documents: {error}",
   "homeContent.retry": "Retry",
   "homeContent.more": "More",
-  "homeContent.less": "Show less",
 
 
   "homeApps.pdfGuide": "Open a Markdown or HTML document first, then choose Plugins → Import & Export → Export to PDF… from the existing menu.",

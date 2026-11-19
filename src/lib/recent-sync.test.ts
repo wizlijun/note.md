@@ -15,7 +15,6 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke }))
 vi.mock('@tauri-apps/api/event', () => ({ listen }))
-vi.mock('@tauri-apps/api/path', () => ({ homeDir: vi.fn(async () => '/Users/b') }))
 vi.mock('@tauri-apps/plugin-os', () => ({ hostname: vi.fn(async () => 'host') }))
 vi.mock('./settings.svelte', () => ({
   getRecentFiles: () => recentFiles,
@@ -33,38 +32,37 @@ beforeEach(() => {
 })
 
 describe('refreshRecentMenu', () => {
-  it('pushes ALL recent files to the native menu (not just one)', async () => {
+  it('retains all recent files for DrawerNav without publishing a menu', async () => {
     recentFiles = ['/a.md', '/b.md', '/c.md']
     const { refreshRecentMenu, mergedRecents } = await import('./recent-sync.svelte')
     await refreshRecentMenu()
     expect(mergedRecents.paths).toEqual(['/a.md', '/b.md', '/c.md'])
-    const call = invoke.mock.calls.find((c) => c[0] === 'update_recent_menu')
-    expect((call?.[1] as { items: unknown[] }).items).toHaveLength(3)
-    expect(call?.[1]).toEqual({ history: true, items: recentFiles.map(path => ({ path, label: path.slice(1) })) })
+    expect(invoke).not.toHaveBeenCalled()
   })
 
-  it('retains raw open history in its separate menu when a Vault is configured', async () => {
+  it('retains raw open history for DrawerNav when a Vault is configured', async () => {
     vault.vaultRoot = '/vault'
     recentFiles = ['/vault/brief-preview.md', '/outside/temporary.md']
     const { refreshRecentMenu, mergedRecents } = await import('./recent-sync.svelte')
     await refreshRecentMenu()
     expect(mergedRecents.paths).toEqual(recentFiles)
-    expect(invoke).toHaveBeenCalledWith('update_recent_menu', { history: true, items: [
-      { path: recentFiles[0], label: 'brief-preview.md — /vault' },
-      { path: recentFiles[1], label: 'temporary.md — /outside' },
-    ] })
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('does not overwrite history after the configured Vault changes during an await', async () => {
-    const { homeDir } = await import('@tauri-apps/api/path')
-    let resolveHome!: (value: string) => void
-    vi.mocked(homeDir).mockImplementationOnce(() => new Promise(resolve => { resolveHome = resolve }))
-    const { refreshRecentMenu } = await import('./recent-sync.svelte')
+    const { exists } = await import('@tauri-apps/plugin-fs')
+    let resolveExists!: (value: boolean) => void
+    vi.mocked(exists).mockImplementationOnce(() => new Promise(resolve => { resolveExists = resolve }))
+    const { refreshRecentMenu, mergedRecents } = await import('./recent-sync.svelte')
+    mergedRecents.paths = ['/new-vault/current.md']
+    vault.vaultRoot = '/old-vault'
+    recentFiles = ['/old-vault/stale.md']
     const refreshing = refreshRecentMenu()
-    await vi.waitFor(() => expect(resolveHome).toBeDefined())
+    await vi.waitFor(() => expect(resolveExists).toBeDefined())
     vault.vaultRoot = '/new-vault'
-    resolveHome('/Users/b')
+    resolveExists(false)
     await refreshing
+    expect(mergedRecents.paths).toEqual(['/new-vault/current.md'])
     expect(invoke).not.toHaveBeenCalled()
   })
 })
@@ -77,10 +75,11 @@ describe('installRecentsSync', () => {
     expect(listen).toHaveBeenCalledWith('editor://recents-synced', expect.any(Function))
   })
 
-  it('does NOT push the menu during install — defers to a post-load refresh so it never publishes an empty (pre-loadSettings) list', async () => {
-    const { installRecentsSync } = await import('./recent-sync.svelte')
+  it('defers history refresh until settings have loaded', async () => {
+    const { installRecentsSync, mergedRecents } = await import('./recent-sync.svelte')
+    mergedRecents.paths = ['/existing.md']
     await installRecentsSync()
-    const call = invoke.mock.calls.find((c) => c[0] === 'update_recent_menu')
-    expect(call).toBeFalsy()
+    expect(mergedRecents.paths).toEqual(['/existing.md'])
+    expect(invoke).not.toHaveBeenCalled()
   })
 })

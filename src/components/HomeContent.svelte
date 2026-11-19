@@ -5,8 +5,8 @@
 
   let actionError = $state<string | null>(null)
   let pending = $state(false)
-  let expanded = $state({ new: false, continue: false })
-  const COLLAPSED_ROWS = 3
+  const PAGE_SIZE = 10
+  let visibleRows = $state({ new: PAGE_SIZE, continue: PAGE_SIZE })
   const sections = $derived([
     { kind: 'new' as const, title: t('homeContent.new'), empty: t('homeContent.emptyNew'), items: homeContentStore.newItems },
     { kind: 'continue' as const, title: t('homeContent.continue'), empty: t('homeContent.emptyContinue'), items: homeContentStore.continueItems },
@@ -38,13 +38,13 @@
       <section aria-labelledby={`home-content-${section.kind}`}>
         <div class="content-heading">
           <h2 id={`home-content-${section.kind}`}>{section.title}</h2>
-          {#if section.items.length > COLLAPSED_ROWS}
-            <button class="content-more" aria-expanded={expanded[section.kind]} aria-controls={`home-content-list-${section.kind}`} onclick={() => { expanded[section.kind] = !expanded[section.kind] }}>{t(expanded[section.kind] ? 'homeContent.less' : 'homeContent.showAll')}</button>
+          {#if section.items.length > visibleRows[section.kind]}
+            <button class="content-more" aria-controls={`home-content-list-${section.kind}`} onclick={() => { visibleRows[section.kind] += PAGE_SIZE }}>{t('homeContent.more')}</button>
           {/if}
         </div>
         {#if section.items.length}
           <ul id={`home-content-list-${section.kind}`}>
-            {#each (expanded[section.kind] ? section.items : section.items.slice(0, COLLAPSED_ROWS)) as item (item.path)}
+            {#each section.items.slice(0, visibleRows[section.kind]) as item (item.path)}
               <li data-content-kind={section.kind}>
                 <button class="content-open" disabled={pending} title={item.path} onclick={() => void action(() => openFile(item.path))}>
                   <span class="content-topline"><span class="content-title">{item.title}</span><span class="content-date">{dateLabel(item.at)}</span></span>

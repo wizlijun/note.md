@@ -4,7 +4,6 @@ import type { Messages } from './en'
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
   "homeApps.commonFeatures": "常用功能",
-  "homeContent.showAll": "全部显示",
   "homeAi.title": "AI 建议",
   "homeAi.empty": "建议将在这里显示。",
   "homeContent.partial": "有 {count} 项无法读取，列表可能不完整。",
@@ -18,7 +17,6 @@ export const zh: Record<keyof Messages, string> = {
   "homeContent.error": "无法更新文档列表：{error}",
   "homeContent.retry": "重试",
   "homeContent.more": "更多",
-  "homeContent.less": "收起",
 
 
   "homeApps.pdfGuide": "请先打开 Markdown 或 HTML 文档，再从现有菜单选择“插件 → 数据导入导出 → 导出为 PDF…”。",
