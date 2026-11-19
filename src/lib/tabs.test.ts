@@ -160,6 +160,29 @@ describe('Sumi tab ownership', () => {
     return { m, sumi, tab, owner }
   }
 
+  it('returns home only after native detach acceptance without closing its owner', async () => {
+    const { m, tab, owner, sumi } = await nativeTab()
+    await m.activateHome()
+    expect(m.activeId.value).toBeNull()
+    expect(m.tabs[0]).toBe(tab)
+    expect(tab.currentContent).toBe('native accepted')
+    expect(owner.surface).toBeUndefined()
+    expect(sumi.sumiOwner(tab.id)).toBe(owner)
+    expect(tauriInvoke).toHaveBeenCalledWith('sumi_detach', expect.anything())
+    await m.activate(tab.id)
+    expect(m.activeId.value).toBe(tab.id)
+  })
+
+  it('keeps native selection when its detach fails', async () => {
+    const { m, tab, owner } = await nativeTab()
+    const previous = tauriInvoke.getMockImplementation()!
+    tauriInvoke.mockImplementation((command, ...args) => command === 'sumi_detach'
+      ? Promise.reject(new Error('composition active')) : previous(command, ...args))
+    await expect(m.activateHome()).rejects.toThrow('composition active')
+    expect(m.activeId.value).toBe(tab.id)
+    expect(owner.surface).toBeDefined()
+  })
+
   it('remaps a native owner by UUID without detaching, focusing or changing its document', async () => {
     const { m, tab, owner } = await nativeTab()
     const surface = owner.surface, oldPath = tab.filePath, raw = tab.currentContent
@@ -2096,5 +2119,64 @@ describe('prepareVaultChange', () => {
     vi.mocked(fs.writeMd).mockRejectedValueOnce(new Error('disk full'))
     await expect(m.prepareVaultChange(async () => 'save')).rejects.toThrow('disk full')
     expect(m.tabs[0].currentContent).toBe('keep this')
+  })
+})
+
+
+describe('return home navigation', () => {
+  async function mounted() {
+    const m = await import('./tabs.svelte')
+    await m.openFile('/vault/home.md')
+    const tab = m.tabs[0]
+    const { open } = await import('../editor-kit-v2/file-test-utils')
+    const controller = open(tab.currentContent)
+    controller.restoreContent('unsaved home draft')
+    let finish!: () => void
+    const barrier = new Promise<void>(resolve => { finish = resolve })
+    const session = { baselineIdentity: {}, owner: controller,
+      flushForDetach: vi.fn(async () => { await barrier; return controller.snapshot() }),
+    } as unknown as import('../editor-kit-v2/file-main').FileMountSession
+    const sessions = await import('./file-editor-sessions')
+    sessions.registerFileEditorSession(tab.id, session)
+    return { m, tab, controller, session, finish, sessions }
+  }
+
+  it('awaits detach flush, retains unsaved content/session/undo and can reactivate', async () => {
+    const { m, tab, controller, session, finish, sessions } = await mounted()
+    const before = m.tabs.map(tab => tab.id)
+    const home = m.activateHome()
+    expect(m.activeId.value).toBe(tab.id)
+    expect(session.flushForDetach).toHaveBeenCalledOnce()
+    finish(); await home
+    expect(m.activeId.value).toBeNull()
+    expect(m.tabs.map(tab => tab.id)).toEqual(before)
+    expect(tab.currentContent).toBe('unsaved home draft')
+    expect(tab.initialContent).not.toBe(tab.currentContent)
+    expect(sessions.fileEditorSession(tab.id)).toBe(session)
+    expect(controller.runHistory('undo', true)).toBe(true)
+    expect((await import('./fs')).writeMd).not.toHaveBeenCalled()
+    await m.activate(tab.id)
+    expect(m.activeId.value).toBe(tab.id)
+  })
+
+  it('shows a failed barrier and keeps the document selected', async () => {
+    const { m, tab, session } = await mounted()
+    vi.mocked(session.flushForDetach).mockRejectedValue(new Error('composition busy'))
+    await expect(m.activateHome()).rejects.toThrow('composition busy')
+    expect(m.activeId.value).toBe(tab.id)
+    expect((await import('./dialogs')).showError).toHaveBeenCalledWith('Error: composition busy')
+  })
+
+  it('does not let a stale completion overwrite newer navigation or a rebound path', async () => {
+    const { m, tab, finish } = await mounted()
+    const home = m.activateHome()
+    m.activeId.value = 'newer-navigation'
+    finish(); await home
+    expect(m.activeId.value).toBe('newer-navigation')
+    m.activeId.value = tab.id
+    const next = m.activateHome()
+    tab.filePath = '/vault/rebound.md'
+    await expect(next).rejects.toThrow('GUEST_TAB_CHANGED')
+    expect(m.activeId.value).toBe(tab.id)
   })
 })

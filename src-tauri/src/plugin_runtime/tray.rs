@@ -128,8 +128,29 @@ pub fn accelerators_from_state() -> Vec<(String, TrayEntry)> {
         .collect()
 }
 
+/// Notify usage only after a manually requested window was accepted by the host.
+pub fn open_manual_window<E>(
+    open: impl FnOnce() -> Result<(), E>,
+    accepted: impl FnOnce(),
+) -> Result<(), E> {
+    open()?;
+    accepted();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn manual_window_usage_only_follows_an_accepted_open() {
+        let count = std::cell::Cell::new(0);
+        let failed = open_manual_window(|| Err::<(), _>("failed"), || count.set(count.get() + 1));
+        assert_eq!(failed, Err("failed"));
+        assert_eq!(count.get(), 0);
+        let opened = open_manual_window(|| Ok::<(), &str>(()), || count.set(count.get() + 1));
+        assert_eq!(opened, Ok(()));
+        assert_eq!(count.get(), 1);
+    }
+
     use super::*;
     use serde_json::json;
 

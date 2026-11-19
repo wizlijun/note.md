@@ -364,6 +364,7 @@ export const en = {
 
   // Drawer / tab bar
   'drawer.closeMenu': 'Close menu',
+  'tabBar.home': 'Home',
   'tabBar.modified': 'modified',
   'tabBar.closeLeft': 'Close Tabs to the Left',
   'tabBar.closeAll': 'Close All Tabs',

@@ -12,6 +12,7 @@
   import { onOpenUrl, getCurrent } from '@tauri-apps/plugin-deep-link'
   import TabBar from './components/TabBar.svelte'
   import EditorPane from './components/EditorPane.svelte'
+  import HomeDocumentHost from './components/HomeDocumentHost.svelte'
   import EmptyState from './components/EmptyState.svelte'
   import ModeToggle from './components/ModeToggle.svelte'
   import { activeTab, tabs, reconcileSumiPath, type SumiPathChange, closeTab, openFile, replaceCurrentFile, newFile, isDirty, activate, setMode, saveTab } from './lib/tabs.svelte'
@@ -50,7 +51,8 @@
   import { initActivePluginIds } from './lib/plugins/registry'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
-  import { dispatchFileViewCommand } from './lib/plugins/file-view-commands'
+  import { launchPluginApp, pluginCommandEnabled, observeManualAppOpens } from './lib/plugins/app-launch'
+  import { recordHomeAppUse } from './lib/home-apps/store.svelte'
   import { fileViewPresentation, matchingDeclaredFileView, selectFileView } from './lib/plugins/file-view-presentation.svelte'
   import { pluginMenuLabel, pluginName } from './lib/plugins/plugin-i18n'
   import type { PluginManifest, EnabledWhenContext, ToastLevel } from './lib/plugins/types'
@@ -66,7 +68,7 @@
   import { loadOutlineGate } from './lib/outline/gate.svelte'
   import { loadHistoryGate, historyAppliesTo } from './lib/git-history/gate.svelte'
   import { loadOutlineDirs } from './lib/outline/dirs.svelte'
-  import { platform, isIOS, type Platform } from './lib/platform.svelte'
+  import { platform, isIOS, formFactor, type Platform } from './lib/platform.svelte'
   import { vaultStore, refreshStatus, syncNow, attachStatusListener } from './lib/vault.svelte'
   import { canSyncActive, isTrackedVaultFile, deviceSourceForVaultPath, isMirroredSource, refreshSotvault, sotvaultStore, setVaultRootChangedHandler } from './lib/sotvault.svelte'
   import { indexStatus } from './lib/search/index-status.svelte'
@@ -77,6 +79,28 @@
   import { installLatestMenu } from './lib/latest-menu'
   import { maybeInstallTracker, shutdownTracker } from './lib/insights/tracker.svelte'
   import { ensureWikilinkBlocklist } from './lib/wikilink/blocklist-io.svelte'
+
+  function pluginCommandContext(pluginId: string): EnabledWhenContext {
+    const tab = activeTab()
+    return {
+      currentTab: tab ? {
+        path: tab.filePath || null, filename: tab.title || null,
+        extension: tab.filePath ? (tab.filePath.split('.').pop() ?? null) : null,
+        kind: tab.kind === 'image' ? null : tab.kind,
+        hasContent: tab.kind === 'image' ? !!tab.filePath : tab.currentContent.length > 0,
+        isDirty: tab.currentContent !== tab.initialContent, isUntitled: !tab.filePath,
+        canSyncToVault: canSyncActive(tab.filePath || null),
+        isTrackedVaultFile: isTrackedVaultFile(tab.filePath || null),
+        hasSyncSource: !!deviceSourceForVaultPath(tab.filePath || null) && syncSourceExists,
+        isInVault: historyAppliesTo(tab, sotvaultStore.vaultRoot),
+      } : null,
+      settings: getPluginScopedAll(pluginId), vaultConfigured: sotvaultStore.vaultRoot !== null,
+    }
+  }
+  const usageDeps = {
+    recordUse: recordHomeAppUse,
+    reportUsageError: (error: unknown) => console.warn('[home-apps] usage persistence failed:', error),
+  }
 
   /** Open an in-memory read-only buffer received from the remote agent.
    *  The tab gets title "[remote] <basename>" and its content is pre-filled.
@@ -179,6 +203,8 @@
         void invoke('set_file_history_route', { route: { ...route, epoch, routeVersion: ++routeVersion } }).catch(error => console.warn('[file-history] route:', error))
       })
     }).catch(error => console.warn('[file-history] init:', error))
+
+    const unlistenManualAppOpens = observeManualAppOpens(listen<string>, usageDeps)
 
     const unlistenSumiPaths = listen<SumiPathChange>('sumi-path-changed', async event => {
       try { await reconcileSumiPath(event.payload) }
@@ -579,6 +605,7 @@
         // rebuilds the native menu without recreating this dispatcher.
         const m = pluginRuntime.manifests.find((manifest) => manifest.id === pluginId)
         if (!m) { console.warn('[App] unknown plugin', pluginId); return }
+        if (!pluginCommandEnabled(m, command, pluginCommandContext(pluginId))) return
         const menu = m.menus?.find((me) => me.command === command)
         const openPrompt = menu?.prompt?.kind === 'open-dialog' ? menu.prompt : undefined
 
@@ -587,26 +614,32 @@
         // view for the current file, or opens the ordinary file picker when no
         // document is active.
         try {
-          const handled = await dispatchFileViewCommand(m, command, {
-            activeTab,
-            pickOpenFile: async () => {
-              const { pickOpenFile } = await import('./lib/dialogs')
-              return pickOpenFile(openPrompt?.filters)
-            },
-            openFile,
-            flush: (tabId) => window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId } })),
-            setRichMode: (tabId) => setMode(tabId, 'rich'),
-            openView: (detail) => {
-              const tab = tabs.find((item) => item.id === detail.tabId)
-              if (tab) selectFileView(tab, detail)
-            },
-            unsupported: () => pushToast({
-              level: 'info',
-              message: t('fileView.openMatchingFile', {
-                name: menu ? pluginMenuLabel(m, command, menu.label) : pluginName(m),
+          const handled = await launchPluginApp(pluginId, command, {
+            manifests: () => pluginRuntime.manifests,
+            context: pluginCommandContext,
+            openWindow: (pluginId, windowId) => invoke('plugin_v2_open_window', { pluginId, windowId }),
+            ...usageDeps,
+            fileView: {
+              activeTab,
+              pickOpenFile: async () => {
+                const { pickOpenFile } = await import('./lib/dialogs')
+                return pickOpenFile(openPrompt?.filters)
+              },
+              openFile,
+              flush: (tabId) => window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId } })),
+              openView: (detail, complete) => {
+                const tab = tabs.find((item) => item.id === detail.tabId)
+                if (tab) selectFileView(tab, detail, complete)
+                else complete?.(false)
+              },
+              unsupported: () => pushToast({
+                level: 'info',
+                message: t('fileView.openMatchingFile', {
+                  name: menu ? pluginMenuLabel(m, command, menu.label) : pluginName(m),
+                }),
               }),
-            }),
-          }, { alwaysPickFile: !!openPrompt })
+            },
+          })
           if (handled) return
         } catch (e) {
           showError(String(e))
@@ -649,21 +682,6 @@
           return renderTabAsInlineBody(t)
         }
 
-        // A command that maps to a plugin window opens that window instead of
-        // executing on the process runtime (spec §7.2 — pure-UI plugins).
-        const openWin = m.open_windows?.[command]
-        if (openWin) {
-          try {
-            await invoke('plugin_v2_open_window', { pluginId: m.id, windowId: openWin })
-          } catch (e) {
-            pushToast({
-              level: 'error',
-              message: t('plugins.internalError', { name: m.name }),
-              detail: String(e),
-            })
-          }
-          return
-        }
         // The command executes on the plugin's resident runtime process, which
         // reports back through the plugin-toast event listener rather than
         // returning anything to render here.
@@ -941,6 +959,7 @@
       unlistenDrop.then((fn) => fn())
       unlistenSumiFocus.then((fn) => fn())
       unlistenSumiPaths.then((fn) => fn())
+      unlistenManualAppOpens.then((fn) => fn())
       unlistenOpenFile.then((fn) => fn())
       unlistenQuickNote.then((fn) => fn())
       unlistenOpenPath.then((fn) => fn())
@@ -1087,16 +1106,15 @@
     {#if platformName !== 'ios'}
       <SidePanel side="left" tab={current ?? null} />
     {/if}
-    {#if current}
-      <div class="document-column" aria-busy={!themeReady}>
-        {#if tabs.length === 1 && platformName !== 'ios'}
-          <div class="single-tab-viewbar"><ModeToggle tab={current} /></div>
+    <HomeDocumentHost {current} {tabs} ready={themeReady}>
+      {#snippet children(document)}
+        {#if tabs.length === 1 && platformName !== 'ios' && formFactor.value !== 'desktop'}
+          <div class="single-tab-viewbar"><ModeToggle tab={document} /></div>
         {/if}
-        {#if themeReady}<EditorPane tab={current} />{/if}
-      </div>
-    {:else}
-      <EmptyState />
-    {/if}
+        {#if themeReady}<EditorPane tab={document} />{/if}
+      {/snippet}
+    </HomeDocumentHost>
+    {#if !current}<EmptyState />{/if}
     {#if platformName !== 'ios'}
       <SidePanel side="right" tab={current ?? null} />
     {/if}
@@ -1140,13 +1158,6 @@
   .pane :global(.image-preview-wrap) {
     flex: 1;
     min-width: 0;
-  }
-  .document-column {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
   }
   .single-tab-viewbar {
     display: flex;

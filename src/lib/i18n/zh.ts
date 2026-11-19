@@ -359,6 +359,7 @@ export const zh: Record<keyof Messages, string> = {
 
   // Drawer / tab bar
   'drawer.closeMenu': '关闭菜单',
+  'tabBar.home': '首页',
   'tabBar.modified': '已修改',
   'tabBar.closeLeft': '关闭左侧',
   'tabBar.closeAll': '关闭所有',

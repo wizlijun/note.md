@@ -7,18 +7,20 @@ export interface OpenFileViewDetail extends FileViewRef {
   tabId: string
 }
 
-interface FileViewCommandDeps {
+export interface FileViewCommandDeps {
   activeTab(): Tab | null
   pickOpenFile(): Promise<string | null>
   openFile(path: string): Promise<void>
   flush(tabId: string): void
-  setRichMode(tabId: string): void
-  openView(detail: OpenFileViewDetail): void
+  /** Legacy callers may own mode switching separately from openView. */
+  setRichMode?(tabId: string): void
+  openView(detail: OpenFileViewDetail, complete?: (accepted: boolean) => void): void
   unsupported(view: FileViewContribution): void
 }
 
 interface FileViewCommandOptions {
   alwaysPickFile?: boolean
+  onAccepted?: () => void
 }
 
 function commandView(manifest: PluginManifest, command: string): FileViewContribution | null {
@@ -55,6 +57,9 @@ export async function dispatchFileViewCommand(
     if (!path) return true
     await deps.openFile(path)
     tab = deps.activeTab()
+    // openFile can resolve after declining/rejecting a file; resolution alone
+    // must not apply the requested view to the previously selected document.
+    if (tab?.filePath !== path) return true
   }
   if (!tab) return true
 
@@ -67,7 +72,13 @@ export async function dispatchFileViewCommand(
     return true
   }
 
-  deps.setRichMode(tab.id)
-  deps.openView({ tabId: tab.id, ...ref })
+  deps.setRichMode?.(tab.id)
+  const selectedTab = tab, selectedPath = tab.filePath
+  let completed = false
+  deps.openView({ tabId: tab.id, ...ref }, (accepted) => {
+    if (completed) return
+    completed = true
+    if (accepted && deps.activeTab() === selectedTab && selectedTab.filePath === selectedPath) options.onAccepted?.()
+  })
   return true
 }

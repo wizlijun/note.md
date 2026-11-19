@@ -377,7 +377,29 @@ function notifyInsights(method: 'onActiveDocChanged' | 'onModeChanged'): void {
   void import('./insights/tracker.svelte').then((m) => m[method]()).catch(() => {})
 }
 
+let navigationIntent = 0
+
+/** Return home without saving, closing tabs or discarding mounted drafts. */
+export async function activateHome(): Promise<void> {
+  const intent = ++navigationIntent
+  const previous = activeTab()
+  if (!previous) return
+  const path = previous.filePath
+  try {
+    await flushMountedDocument(previous.id, true)
+  } catch (error) {
+    const { showError } = await import('./dialogs')
+    void showError(String(error))
+    throw error
+  }
+  if (intent !== navigationIntent || activeId.value !== previous.id
+    || !tabs.includes(previous) || previous.filePath !== path) return
+  activeId.value = null
+  notifyInsights('onActiveDocChanged')
+}
+
 export async function activate(id: string): Promise<void> {
+  ++navigationIntent
   if (tabs.some((t) => t.id === id)) {
     const previous = activeId.value
     if (previous && previous !== id) {

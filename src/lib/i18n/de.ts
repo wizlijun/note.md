@@ -357,6 +357,7 @@ export const de: Record<keyof Messages, string> = {
 
   // Drawer / tab bar
   'drawer.closeMenu': 'Menü schließen',
+  'tabBar.home': 'Startseite',
   'tabBar.modified': 'geändert',
   'tabBar.closeLeft': 'Tabs links schließen',
   'tabBar.closeAll': 'Alle Tabs schließen',
