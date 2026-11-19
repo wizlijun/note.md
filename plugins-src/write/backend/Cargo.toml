@@ -9,8 +9,8 @@ path = "src/main.rs"
 
 [dependencies]
 notemd-plugin-sdk = { path = "../../../notemd-plugin-sdk" }
-sumi-protocol = { path = "../../../sumi-protocol" }
-write-core = { path = "../../../write-core" }
+sumi-protocol = { git = "https://github.com/wizlijun/sumiwrite", tag = "core-v0.1.0" }
+write-core = { git = "https://github.com/wizlijun/sumiwrite", tag = "core-v0.1.0" }
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
@@ -30,6 +30,7 @@ tokio-tungstenite = { version = "=0.28.0", default-features = false, features = 
 cc = "1"
 
 [dev-dependencies]
+write-core = { git = "https://github.com/wizlijun/sumiwrite", tag = "core-v0.1.0", features = ["fixtures"] }
 tokio = { version = "1", features = ["test-util", "process"] }
 tempfile = "3"
 

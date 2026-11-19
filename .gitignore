@@ -68,8 +68,7 @@ location-helper/target/
 /src-tauri/resources/sumi/*.otf
 /src-tauri/resources/sumi/*.ttf
 /src-tauri/resources/sumi/*.download
-/write-sync-worker/.wrangler/
 
-/sumi-protocol/target/
+/scripts/sumi/native/target/
 /tauri-plugin-native-editor/target/
 /plugins-src/write/backend/target/

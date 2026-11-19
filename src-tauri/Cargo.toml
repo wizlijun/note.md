@@ -36,8 +36,8 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tokio = { version = "1", features = ["time", "process", "io-util", "macros", "rt-multi-thread", "sync", "net"] }
 plugin-protocol = { path = "../plugin-protocol" }
-write-core = { path = "../write-core" }
-sumi-protocol = { path = "../sumi-protocol" }
+write-core = { git = "https://github.com/wizlijun/sumiwrite", tag = "core-v0.1.0" }
+sumi-protocol = { git = "https://github.com/wizlijun/sumiwrite", tag = "core-v0.1.0" }
 tauri-plugin-native-editor = { path = "../tauri-plugin-native-editor" }
 rusqlite = { version = "0.40", features = ["bundled"] }
 base64 = "0.22.1"

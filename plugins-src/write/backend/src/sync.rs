@@ -1904,9 +1904,7 @@ mod tests {
             bundle["deviceSecret"].as_str().unwrap().into(),
         )?;
         let mut client = SyncClient::new_local(credentials)?;
-        let fixture: Value = serde_json::from_str(include_str!(
-            "../../../../write-core/tests/fixtures/yrs-v1.json"
-        ))?;
+        let fixture: Value = serde_json::from_str(write_core::fixtures::YRS_V1)?;
         let page_id = fixture["pageId"].as_str().unwrap();
         let page = client
             .create_page(&uuid::Uuid::new_v4().to_string(), page_id, None, None)

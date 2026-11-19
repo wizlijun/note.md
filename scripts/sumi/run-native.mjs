@@ -9,10 +9,10 @@ const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..')
 const output=path.resolve(process.argv.slice(2).find(arg=>!arg.startsWith('--'))??path.join(os.tmpdir(),'sumi-editor-benchmark'))
 const smoke=process.argv.includes('--smoke')
 const hash=async p=>createHash('sha256').update(await readFile(p)).digest('hex')
-const inputs=['scripts/sumi/native/runner.m','scripts/sumi/native/src/main.rs','scripts/sumi/native/Cargo.lock','tauri-plugin-native-editor/native/editor.m','tauri-plugin-native-editor/native/editor.h','tauri-plugin-native-editor/native/focus.h','write-core/src/document.rs','write-core/src/render.rs','write-core/src/selection.rs']
+const inputs=['scripts/sumi/native/runner.m','scripts/sumi/native/src/main.rs','scripts/sumi/native/Cargo.lock','tauri-plugin-native-editor/native/editor.m','tauri-plugin-native-editor/native/editor.h','tauri-plugin-native-editor/native/focus.h']
 const before=Object.fromEntries(await Promise.all(inputs.map(async p=>[p,await hash(path.join(repo,p))])))
-execFileSync('cargo',['+1.99.0','build','--release','--offline','--locked','--manifest-path','scripts/sumi/native/Cargo.toml'],{cwd:repo,env:{...process.env,CARGO_TARGET_DIR:path.join(repo,'write-core/target')},stdio:'inherit'})
-const binary=path.join(repo,'write-core/target/release/sumi-native-benchmark')
+execFileSync('cargo',['+1.99.0','build','--release','--offline','--locked','--manifest-path','scripts/sumi/native/Cargo.toml'],{cwd:repo,env:{...process.env,CARGO_TARGET_DIR:path.join(repo,'scripts/sumi/native/target')},stdio:'inherit'})
+const binary=path.join(repo,'scripts/sumi/native/target/release/sumi-native-benchmark')
 await mkdir(path.join(output,'reports'),{recursive:true})
 for(const size of [10000,100000]){
  const destination=path.join(output,'reports',`native-${size}-${Date.now()}.json`)

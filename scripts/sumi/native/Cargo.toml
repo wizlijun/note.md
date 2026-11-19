@@ -3,7 +3,7 @@ name="sumi-native-benchmark"
 version="0.1.0"
 edition="2021"
 [dependencies]
-write-core={path="../../../write-core"}
+write-core={git = "https://github.com/wizlijun/sumiwrite", tag = "core-v0.1.0"}
 serde_json="1"
 [build-dependencies]
 cc="1"

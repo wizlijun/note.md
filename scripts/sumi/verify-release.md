@@ -16,7 +16,7 @@ python3 scripts/sumi/verify-release.py --freeze-inputs \
   --output /absolute/release/frozen-sumi-inputs.json
 ```
 
-冻结schema2记录实际host完整JS模块、plugin manifest/UI/签后backend文件摘要，以及宿主关键源码、后台/protocol/write-core全部受控文件和插件10小资源。它不声称单凭摘要证明构建来源；必须保留同源码构建日志。被迁出的七个字体本体仍是ignored开发缓存，缺少缓存不阻止薄包验收；若缓存存在则严格匹配冻结catalog。
+冻结schema2记录实际host完整JS模块、plugin manifest/UI/签后backend文件摘要，以及宿主关键源码、后台全部受控文件(内核与protocol来自 sumiwrite `core-v0.1.0`,由受控的 `plugins-src/write/backend/Cargo.lock` 钉住tag与提交)和插件10小资源。它不声称单凭摘要证明构建来源；必须保留同源码构建日志。被迁出的七个字体本体仍是ignored开发缓存，缺少缓存不阻止薄包验收；若缓存存在则严格匹配冻结catalog。
 
 ```sh
 python3 scripts/sumi/verify-release.py \

@@ -780,6 +780,7 @@ checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
 [[package]]
 name = "write-core"
 version = "0.1.0"
+source = "git+https://github.com/wizlijun/sumiwrite?tag=core-v0.1.0#8f28b98ab63b12188f0c3ed81946c4522b199cc2"
 dependencies = [
  "base64",
  "chrono",

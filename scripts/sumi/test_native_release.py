@@ -39,7 +39,8 @@ class NativeReleaseTests(unittest.TestCase):
         self.assertEqual(r['status'],'Accepted');self.assertEqual(r['binary']['sha256'],n.sha((self.args.output_dir/'notemd-sumi').read_bytes()))
         self.assertFalse(r['spctl']['notarized_developer_id'])
     def test_source_freeze_covers_all_local_compiled_crates(self):
-        self.assertTrue({'plugins-src/write/backend','sumi-protocol','write-core','notemd-plugin-sdk','plugin-protocol'} <= set(n.SOURCE_DIRS))
+        self.assertTrue({'plugins-src/write/backend','notemd-plugin-sdk','plugin-protocol'} <= set(n.SOURCE_DIRS))
+        self.assertFalse({'sumi-protocol','write-core'} & set(n.SOURCE_DIRS))
 
     def test_missing_identity_rejected_before_any_external_command(self):
         self.env.pop('APPLE_SIGNING_IDENTITY')

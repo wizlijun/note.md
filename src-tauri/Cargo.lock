@@ -5654,6 +5654,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "sumi-protocol"
 version = "0.1.0"
+source = "git+https://github.com/wizlijun/sumiwrite?tag=core-v0.1.0#8f28b98ab63b12188f0c3ed81946c4522b199cc2"
 dependencies = [
  "serde",
  "serde_json",
@@ -8060,6 +8061,7 @@ dependencies = [
 [[package]]
 name = "write-core"
 version = "0.1.0"
+source = "git+https://github.com/wizlijun/sumiwrite?tag=core-v0.1.0#8f28b98ab63b12188f0c3ed81946c4522b199cc2"
 dependencies = [
  "base64 0.22.1",
  "chrono",

@@ -41,7 +41,7 @@ SOURCES = ['src/components/EditorPane.svelte', 'src/components/FolderView.svelte
            'plugins-src/write/src/main.ts', 'plugins-src/write/src/contract.ts',
            'plugins-src/write/src/style.css', 'plugins-src/write/manifest.v2.json',
            'plugins-src/write/resources/sumi/manifest.json',
-           'sumi-protocol/src/fonts.rs', 'plugins-src/write/vite.config.ts',
+           'plugins-src/write/backend/Cargo.lock', 'plugins-src/write/vite.config.ts',
            'src/components/SettingsDialog.svelte', 'src/lib/settings.svelte.ts',
            'src/lib/editor-bridge.ts', 'src/lib/editor-select-all.ts',
            'src/lib/frontmatter-html.ts', 'src/lib/frontmatter-preference.svelte.ts',

@@ -10,7 +10,7 @@
 | 最小 Web | 同窗口引擎的 ProseMirror basic schema，无额外插件 | 编辑器 DOM/事务；同字体与正文，不把它冒充完整宿主功能 |
 | Native + core | 直接编译生产 `native/editor.m`，同步回调调用 `SourceMap::apply_edit` + `Document` + SourceMap 重建 + JSON projection | 真实 AppKit/TextKit 2/core 增量路径；隐藏窗口的同步 viewport layout；排除 Tauri 业务锁、耐久队列、网络、物理事件投递与 compositor |
 
-不能将 Native 隐藏窗口的布局时长与 Web 的 rAF 机会时长当成同一个指标；可比较同步处理段，同时分别列出两种渲染代理。完整宿主 WAL/投影和实时同步沿用既有 `write-core/examples/candidate_continuous.rs`、`confirmed_benchmark.rs` 及 durability 容量基准证据，不能与本工具混在同一列。
+不能将 Native 隐藏窗口的布局时长与 Web 的 rAF 机会时长当成同一个指标；可比较同步处理段，同时分别列出两种渲染代理。完整宿主 WAL/投影和实时同步沿用内核(来自 sumiwrite `core-v0.1.0`,仓库内 `core/examples/`)的 `candidate_continuous.rs`、`confirmed_benchmark.rs` 及 durability 容量基准证据，不能与本工具混在同一列。
 
 Web 自动轮次直接派发 ProseMirror transaction，会经过真实 editor owner/plugins，但不会模拟键盘事件、DOM beforeinput/IME 或依赖 DOM input 的 slash-menu 监听。Native 自动轮次调用 insertText，也不经过物理键盘事件投递。真实输入记录必须另外运行；不能把自动轮次说成完整打字路径。
 
@@ -59,7 +59,7 @@ node scripts/sumi/run-native.mjs --smoke
 node scripts/sumi/run-native.mjs
 ```
 
-自动使用 Rust 1.99.0、`--release --offline --locked`，复用 `write-core/target`；锁文件以 core 的已验收依赖版本为基础。必须允许本机 AppKit/字体服务连接；窗口保持隐藏，不注册或启动新的 GUI app。默认每尺寸 5 轮、1000 warmup、100 samples。所有输入经生产 NSTextView `insertText`，回调执行实际 core；逐字构造期望结果并验证最终 AppKit 文字和 core 投影完全一致。指标包括 core apply/render、projection JSON、insertText return、viewport layout、挂载、独立进程 RSS peak。原生 `core_open_ms` 是合成语料创建，`mount_ms` 不含 SQLite 历史恢复，因此不能直接填作 spec 的完整纸页热打开门禁。只读字体 manifest 核验全部使用字体的 SHA-256。
+自动使用 Rust 1.99.0、`--release --offline --locked`，产物在 `scripts/sumi/native/target`；内核来自 sumiwrite `core-v0.1.0`，锁文件钉住该 tag 与提交。离线构建前先 `cargo +1.99.0 fetch --manifest-path scripts/sumi/native/Cargo.toml`。必须允许本机 AppKit/字体服务连接；窗口保持隐藏，不注册或启动新的 GUI app。默认每尺寸 5 轮、1000 warmup、100 samples。所有输入经生产 NSTextView `insertText`，回调执行实际 core；逐字构造期望结果并验证最终 AppKit 文字和 core 投影完全一致。指标包括 core apply/render、projection JSON、insertText return、viewport layout、挂载、独立进程 RSS peak。原生 `core_open_ms` 是合成语料创建，`mount_ms` 不含 SQLite 历史恢复，因此不能直接填作 spec 的完整纸页热打开门禁。只读字体 manifest 核验全部使用字体的 SHA-256。
 
 脚本记录二进制与生产源码 before/after hash；测试期间源码变化会使本轮失败，不能拿旧证据验新包。
 
@@ -79,3 +79,15 @@ node scripts/sumi/sample-process.mjs 123,456 60 /tmp/sumi-memory.json
 4. 原生完整 Acceptance.app 使用同一语料的真实 Sumi 页，保留后台 SQLite/投影和同步开启时的测量；同样记录真实输入/画面。不得将本 native CLI 的隐藏布局结果填到该物理指标。
 5. 远端可见 p95≤300ms 必须附真实 RTT≤100ms 证据；10万热打开目标≤500ms；停止输入后 MD/meta 通常≤1秒，并验证关闭 flush。现有算法/队列基准不能代替这些完整 UI 测量。
 6. 汇总脚本始终将 `physical_input_to_frame_gate` 与 `host_memory_gate` 标为 `NOT_MEASURED`，不会因为程序化数字好看而自动判绿。发布验收仍需主代理补充实机证据。
+
+## 内核来源与本地联调
+
+内核 `write-core` 与 `sumi-protocol` 来自 sumiwrite 仓库的 `core-v0.1.0`(https://github.com/wizlijun/sumiwrite),三份 `Cargo.lock` 钉住该 tag 与提交。要在本地同时改两边时,把 sumiwrite 检出在 note.md 旁边(`../sumiwrite`),在要构建的清单里临时加上下面这段,**不要提交**:
+
+```toml
+[patch."https://github.com/wizlijun/sumiwrite"]
+write-core = { path = "../sumiwrite/core" }
+sumi-protocol = { path = "../sumiwrite/protocol" }
+```
+
+路径相对于该清单所在目录,`src-tauri/` 以外的清单要相应多加几级 `../`。
