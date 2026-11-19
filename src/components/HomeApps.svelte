@@ -8,17 +8,15 @@
   import { buildHomeApps, type HomeApp } from '../lib/home-apps/catalog'
   import { shortcutSlots } from '../lib/home-apps/model'
   import { homeAppsStore, loadHomeApps, reconcileHomeApps, refreshHomeAppRanking, pinHomeApp, unpinHomeApp, moveHomeApp, recordHomeAppUse } from '../lib/home-apps/store.svelte'
-  import { dispatchPluginCommand, pluginRuntime } from '../lib/plugins/runtime.svelte'
+  import { dispatchPluginCommand, pluginRuntime, refreshPluginManifests } from '../lib/plugins/runtime.svelte'
   import { pluginCommandEnabled } from '../lib/plugins/app-launch'
   import { getPluginScopedAll, pluginScopedVersion } from '../lib/settings.svelte'
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { openSettings } from '../lib/ui-state.svelte'
   import { t, i18n } from '../lib/i18n/store.svelte'
   import type { InstalledV2 } from '../lib/market/types'
-  import type { PluginManifest } from '../lib/plugins/types'
 
   let installed = $state<InstalledV2[]>([])
-  let manifests = $state<PluginManifest[]>([])
   let loading = $state(true)
   let complete = $state(false)
   let awaitingDispatcher = $state(false)
@@ -36,7 +34,7 @@
   let disposed = false
   let generation = 0
   let reload = $state<() => void>(() => {})
-  const apps = $derived(buildHomeApps(installed, manifests, i18n.locale))
+  const apps = $derived(buildHomeApps(installed, pluginRuntime.manifests, i18n.locale))
   const byId = $derived(new Map(apps.map(app => [app.id, app])))
   const eligible = $derived.by(() => {
     void pluginScopedVersion.value
@@ -114,15 +112,15 @@
       loading = true; catalogError = null
       // Both reads must succeed. An empty runtime during App hydration is not a catalog.
       try {
-        const [items, runtime] = await Promise.all([invoke<InstalledV2[]>('plugin_market_installed'), invoke<PluginManifest[]>('get_plugin_manifests'), loadHomeApps()])
+        const [items] = await Promise.all([invoke<InstalledV2[]>('plugin_market_installed'), refreshPluginManifests(), loadHomeApps()])
         if (disposed || request !== generation) return
-        installed = items; manifests = runtime; complete = true
+        installed = items; complete = true
         await reconcileHomeApps(items.map(item => item.id))
         if (disposed || request !== generation) return
         if (!pluginRuntime.ready) { awaitingDispatcher = true; return }
         awaitingDispatcher = false
         // The dispatcher is registered and a fresh runtime read has completed.
-        const ids = buildHomeApps(items, runtime, i18n.locale).filter(app => app.enabled && app.available && app.manifest && pluginCommandEnabled(app.manifest, app.entry.kind === 'command' ? app.entry.command : null, { currentTab: null, settings: getPluginScopedAll(app.id), vaultConfigured: Boolean(sotvaultStore.vaultRoot) })).map(app => app.id)
+        const ids = buildHomeApps(items, pluginRuntime.manifests, i18n.locale).filter(app => app.enabled && app.available && app.manifest && pluginCommandEnabled(app.manifest, app.entry.kind === 'command' ? app.entry.command : null, { currentTab: null, settings: getPluginScopedAll(app.id), vaultConfigured: Boolean(sotvaultStore.vaultRoot) })).map(app => app.id)
         if (!ranked) { await refreshHomeAppRanking(ids); ranked = true }
       } catch (e) { if (!disposed && request === generation && !homeAppsStore.error) catalogError = String(e) }
       finally { if (!disposed && request === generation) loading = false }

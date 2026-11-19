@@ -47,7 +47,7 @@
     collectMenuItems, evaluateEnabled, parsePluginMenuId, CORE_MENU_ENABLED_ITEMS,
     type CollectedItem, type CollectedItems,
   } from './lib/plugins/menu-registry'
-  import { pluginRuntime, setPluginDispatcher, type PluginCommandSource } from './lib/plugins/runtime.svelte'
+  import { pluginRuntime, refreshPluginManifests, setPluginDispatcher, type PluginCommandSource } from './lib/plugins/runtime.svelte'
   import { initActivePluginIds } from './lib/plugins/registry'
   import { getPluginScopedAll, pluginScopedVersion } from './lib/settings.svelte'
   import { pushToast } from './lib/toast.svelte'
@@ -407,7 +407,7 @@
       const hadOpenView = !!pluginId && [...document.querySelectorAll<HTMLElement>('[data-plugin-view-id]')]
         .some((element) => element.dataset.pluginViewId === pluginId)
       try {
-        pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests')
+        await refreshPluginManifests()
         if (pluginId && event.payload?.reloaded) {
           window.dispatchEvent(new CustomEvent('notemd:plugin-reloaded', {
             detail: { pluginId },
@@ -521,7 +521,7 @@
           }
         })
       } else {
-        try { pluginRuntime.manifests = await invoke<PluginManifest[]>('get_plugin_manifests') }
+        try { await refreshPluginManifests() }
         catch (e) { console.warn('[App] get_plugin_manifests:', e) }
       }
       // CLI/background launches also own a hidden main webview. Onboarding

@@ -2,10 +2,10 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks'
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(async (..._args: any[]) => () => {}), dispatch: vi.fn(async () => {}), settings: vi.fn(), save: vi.fn(async () => {}), data: undefined as any, runtime: { manifests: [], ready: true } }))
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(async (..._args: any[]) => () => {}), dispatch: vi.fn(async (_pluginId: string, _command: string) => {}), settings: vi.fn(), save: vi.fn(async () => {}), data: undefined as any }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }))
 vi.mock('@tauri-apps/plugin-store', () => ({ Store: { load: async () => ({ get: async () => mocks.data, set: async (_key: string, data: any) => { mocks.data = data }, save: mocks.save }) } }))
-vi.mock('../lib/plugins/runtime.svelte', () => ({ pluginRuntime: mocks.runtime, dispatchPluginCommand: mocks.dispatch }))
+vi.mock('../lib/plugins/runtime.svelte', async importOriginal => ({ ...await importOriginal<typeof import('../lib/plugins/runtime.svelte')>(), dispatchPluginCommand: mocks.dispatch }))
 vi.mock('../lib/settings.svelte', () => ({ getPluginScopedAll: () => ({}), pluginScopedVersion: { value: 0 } }))
 vi.mock('../lib/sotvault.svelte', () => ({ sotvaultStore: { vaultRoot: '/vault' } }))
 vi.mock('../lib/ui-state.svelte', () => ({ openSettings: mocks.settings }))
@@ -14,6 +14,8 @@ import HomeApps from './HomeApps.svelte'
 import { homeAppsStore } from '../lib/home-apps/store.svelte'
 import { emptyHomeAppsData } from '../lib/home-apps/model'
 import { en } from '../lib/i18n/en'
+import { pluginRuntime, refreshPluginManifests, setPluginDispatcher } from '../lib/plugins/runtime.svelte'
+import { launchPluginApp } from '../lib/plugins/app-launch'
 let app: ReturnType<typeof mount> | undefined
 const installed = [
   { id: 'a', name: 'Alpha', category: 'ai', enabled: true, capabilities: [], version: '1' },
@@ -23,7 +25,7 @@ const manifests = [{ id: 'a', name: 'Alpha', open_windows: { open: 'main' } }, {
 async function settle() { await new Promise(r => setTimeout(r, 0)); flushSync() }
 function button(text: string) { return [...document.querySelectorAll('button')].find(b => b.textContent?.trim() === text)! }
 beforeEach(() => {
-  vi.clearAllMocks(); mocks.runtime.ready = true; document.body.removeAttribute('tabindex'); document.body.innerHTML = ''; mocks.data = emptyHomeAppsData()
+  vi.clearAllMocks(); mocks.dispatch.mockReset().mockResolvedValue(undefined); pluginRuntime.manifests = []; pluginRuntime.ready = true; document.body.removeAttribute('tabindex'); document.body.innerHTML = ''; mocks.data = emptyHomeAppsData()
   Object.assign(homeAppsStore, { data: emptyHomeAppsData(), ready: false, busy: false, error: null })
   mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? installed : manifests)
   mockIPC((cmd, args) => mocks.invoke(cmd, args))
@@ -173,12 +175,12 @@ it('keeps positions while staying on home across midnight and ranks only on the 
   expect(homeAppsStore.data.snapshot).toEqual({ day: '2026-11-20', ids: ['b', 'a'] })
 })
 it('does not freeze a daily snapshot before the dispatcher and startup runtime are ready', async () => {
-  mocks.runtime.ready = false
+  pluginRuntime.ready = false
   mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? installed : [])
   app = mount(HomeApps, { target: document.body }); await settle()
   expect(homeAppsStore.data.snapshot.day).toBe('')
   expect(document.body.textContent).toContain('homeApps.starting')
-  mocks.runtime.ready = true
+  pluginRuntime.ready = true
   mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? installed : manifests)
   mocks.listen.mock.calls[0][1]({ payload: {} }); await settle()
   expect(homeAppsStore.data.snapshot.day).not.toBe('')
@@ -308,4 +310,43 @@ it('restores dialog focus after a delayed failed position save or unpin', async 
   expect(document.activeElement).toBe(document.querySelector('.app-detail h3'))
   document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await settle()
   expect(document.querySelector('[role="dialog"]')).toBeNull()
+})
+it('recovers a failed initial App runtime read so the shared dispatcher can really open the home shortcut', async () => {
+  mocks.invoke.mockRejectedValueOnce(new Error('initial App runtime read failed'))
+  await expect(refreshPluginManifests()).rejects.toThrow('initial App runtime read failed')
+  expect(pluginRuntime.manifests).toEqual([])
+  const opened = vi.fn(async () => {})
+  setPluginDispatcher(async (id, command) => {
+    // Same live-registry lookup and launch helper as App.svelte's dispatcher.
+    if (!pluginRuntime.manifests.find(manifest => manifest.id === id)) return
+    await launchPluginApp(id, command, {
+      manifests: () => pluginRuntime.manifests,
+      context: () => ({ currentTab: null, settings: {}, vaultConfigured: true }),
+      openWindow: opened, recordUse: async () => {}, reportUsageError: vi.fn(), fileView: {} as any,
+    })
+  })
+  const actual = await vi.importActual<typeof import('../lib/plugins/runtime.svelte')>('../lib/plugins/runtime.svelte')
+  mocks.dispatch.mockImplementation(actual.dispatchPluginCommand)
+  mocks.data.pins[0] = 'a'
+  app = mount(HomeApps, { target: document.body }); await settle()
+  document.querySelector<HTMLButtonElement>('[data-home-slot="0"] button')!.click(); await settle()
+  expect(opened).toHaveBeenCalledExactlyOnceWith('a', 'main')
+})
+it('tracks shared runtime removal and updates immediately without relying on its own catalog reload', async () => {
+  mocks.data.pins[0] = 'a'
+  app = mount(HomeApps, { target: document.body }); await settle()
+  const tile = document.querySelector<HTMLButtonElement>('[data-home-slot="0"] button')!
+  expect(tile.getAttribute('aria-disabled')).toBe('false')
+  mocks.invoke.mockImplementation(async cmd => cmd === 'get_plugin_manifests' ? [] : installed)
+  await refreshPluginManifests(); await settle()
+  expect(tile.getAttribute('aria-disabled')).toBe('true')
+  tile.click(); await settle()
+  expect(document.querySelector('.app-detail')?.textContent).toContain('homeApps.unavailable')
+  expect(mocks.dispatch).not.toHaveBeenCalled()
+  button('homeApps.close').click(); await settle()
+  mocks.invoke.mockImplementation(async cmd => cmd === 'get_plugin_manifests' ? [{ ...manifests[0], name: 'Updated Alpha', version: '2', binary: '', host_capabilities: [], open_windows: { show: 'new-main' } }] : installed)
+  await refreshPluginManifests(); await settle()
+  expect(tile.getAttribute('aria-disabled')).toBe('false')
+  tile.click(); await settle()
+  expect(mocks.dispatch).toHaveBeenCalledExactlyOnceWith('a', 'show')
 })
