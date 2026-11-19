@@ -1430,6 +1430,13 @@ export const en = {
   'daily.toolbar.find': 'Find',
   'daily.emptyDay': '(empty)',
 
+  'editorInput.richComposing': "Composition is still active. This action did not complete. Confirm or cancel the input and retry; your document is retained.",
+  'editorInput.sourceComposing': "Composition is still active in source mode. Confirm or cancel the input and retry; your draft is retained.",
+  'editorInput.sourcePending': "Source changes could not be applied. Copy or resolve the draft in the source editor, then retry.",
+  'editorInput.annotationPending': "Annotation changes could not be applied. Resolve the annotation draft, then retry; your document is retained.",
+  'editorInput.copyDraft': "Copy draft",
+  'noteedit.copyFailed': "Copy failed. Select the text and copy it manually.",
+
   // Tray menu
   'tray.dailyNotes': 'Daily Notes',
 } as const

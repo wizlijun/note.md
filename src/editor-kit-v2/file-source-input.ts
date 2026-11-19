@@ -1,5 +1,6 @@
 import type { FileEditorOwner, FileResult, FileSnapshot } from './file-contract'
 import { DiffLimitError } from '../lib/share-merge/diff'
+import { FILE_INPUT_WAIT_MS, FileInputBlockedError } from './file-input-error'
 
 import { displaySource, sourceFromDisplay } from './source-projection'
 
@@ -18,6 +19,7 @@ export interface FileSourceInput {
   retry(): FileResult
   discard(): FileResult
   flush(): Promise<FileSnapshot>
+  reveal(): void
   detach(): void
   bind(textarea: HTMLTextAreaElement, options?: FileSourceOptions): void
 }
@@ -32,6 +34,7 @@ export function attachFileSourceInput(textarea: HTMLTextAreaElement, owner: Sour
   let pending: PendingSource | null = null
   let composing = false
   let frame: number | null = null
+  let compositionEpoch = 0
   let unsubscribe: (() => void) | undefined
   let shortcut: 'undo' | 'redo' | null = null
   const waiters: { resolve(value: FileSnapshot): void; reject(error: Error): void }[] = []
@@ -86,18 +89,22 @@ export function attachFileSourceInput(textarea: HTMLTextAreaElement, owner: Sour
   }
   function settle() {
     for (const waiter of waiters.splice(0)) {
-      if (pending) waiter.reject(new Error(pending.reason))
+      if (pending) waiter.reject(new FileInputBlockedError('source-pending', pending.reason))
       else waiter.resolve(owner.snapshot())
     }
   }
   function start() {
+    compositionEpoch++
+    if (frame !== null) { cancelAnimationFrame(frame); frame = null }
     if (composing) return
     if (!pending) { installed = owner.snapshot(); identity = callbacks.identity?.() ?? owner }
     composing = true; callbacks.onCompositionChange?.(true); read(); paint()
   }
   function end() {
     if (!composing || frame !== null) return
+    const epoch = compositionEpoch
     frame = requestAnimationFrame(() => {
+      if (epoch !== compositionEpoch) return
       frame = null; read(); composing = false; callbacks.onCompositionChange?.(false)
       commitBuffer(); settle()
     })
@@ -129,6 +136,7 @@ export function attachFileSourceInput(textarea: HTMLTextAreaElement, owner: Sour
   ]
   function detach() {
     read()
+    compositionEpoch++
     if (frame !== null) cancelAnimationFrame(frame)
     frame = null
     if (composing) {
@@ -155,12 +163,21 @@ export function attachFileSourceInput(textarea: HTMLTextAreaElement, owner: Sour
       pending = null; follow(); return unchanged()
     },
     flush() {
-      if (composing) return new Promise((resolve, reject) => waiters.push({ resolve, reject }))
+      if (composing) return new Promise((resolve, reject) => {
+        const remove = () => { clearTimeout(timer); const index = waiters.indexOf(waiter); if (index >= 0) waiters.splice(index, 1) }
+        const waiter = {
+          resolve(snapshot: FileSnapshot) { remove(); resolve(snapshot) },
+          reject(error: Error) { remove(); reject(error) },
+        }
+        const timer = setTimeout(() => waiter.reject(new FileInputBlockedError('source-composing')), FILE_INPUT_WAIT_MS)
+        waiters.push(waiter)
+      })
       read()
-      if (pending) return Promise.reject(new Error(pending.reason))
-      if (value !== displaySource(installed.raw)) { const result = commitBuffer(); if (!result.ok) return Promise.reject(new Error(result.reason)) }
+      if (pending) return Promise.reject(new FileInputBlockedError('source-pending', pending.reason))
+      if (value !== displaySource(installed.raw)) { const result = commitBuffer(); if (!result.ok) return Promise.reject(new FileInputBlockedError('source-pending', result.reason)) }
       return Promise.resolve(owner.snapshot())
     },
+    reveal() { element?.focus(); paint() },
     detach, bind,
   }
 }

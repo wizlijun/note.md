@@ -1,11 +1,11 @@
 /** @vitest-environment happy-dom */
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { mount, unmount, tick } from 'svelte'
 import NoteEditPopup from './NoteEditPopup.svelte'
 import { noteUi, type NoteEditState } from './note-ui.svelte'
 
 const components: ReturnType<typeof mount>[] = []
-afterEach(async () => { for (const component of components.splice(0)) await unmount(component); noteUi.edit = null; document.body.replaceChildren() })
+afterEach(async () => { for (const component of components.splice(0)) await unmount(component); noteUi.edit = null; document.body.replaceChildren(); vi.restoreAllMocks() })
 async function popup(save: (text: string) => boolean | void, remove: () => boolean | void = () => false) {
   const edit: NoteEditState & { flushDraft?: () => boolean | void } = { x: 0, y: 0, note: 'old', save, remove }
   noteUi.edit = edit
@@ -95,4 +95,93 @@ it('retains an unaccepted draft across forced component unmount and remount with
   const second = mount(NoteEditPopup, { target }); await tick()
   try { expect(target.querySelector('textarea')?.value).toBe('unsaved draft'); expect(edit.flushDraft?.()).toBe(false) }
   finally { noteUi.edit = null; await unmount(second) }
+})
+
+it('reveals a rejected draft inside the viewport without saving or replacing the text', async () => {
+  const save = vi.fn(() => false)
+  const f = await popup(save)
+  await f.type('unsaved note')
+  f.textarea.setSelectionRange(2, 5)
+  const root = f.target.querySelector<HTMLElement>('.note-edit')!
+  vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(new DOMRect(3000, -3000, 280, 230))
+  f.edit.x = 3000; f.edit.y = -3000
+  f.textarea.blur()
+  expect(f.edit.revealDraft).toBeTypeOf('function')
+  f.edit.revealDraft!(); await tick(); await tick()
+  expect(f.textarea.value).toBe('unsaved note')
+  expect(document.activeElement).toBe(f.textarea)
+  expect([f.textarea.selectionStart, f.textarea.selectionEnd]).toEqual([2, 5])
+  expect(save).not.toHaveBeenCalled()
+  expect(Number.parseFloat(root.style.left)).toBe(window.innerWidth - 288)
+  expect(Number.parseFloat(root.style.top)).toBe(8)
+  expect([...f.target.querySelectorAll('button')].some(button => button.textContent?.includes('Retry'))).toBe(true)
+  f.edit.y = 3000
+  window.dispatchEvent(new Event('resize')); await tick()
+  expect(Number.parseFloat(root.style.top)).toBe(window.innerHeight - 238)
+})
+
+it('reveals a composing draft without moving focus or committing the preedit text', async () => {
+  const save = vi.fn(() => false)
+  const f = await popup(save)
+  f.textarea.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+  await f.type('未确认')
+  const focus = vi.spyOn(f.textarea, 'focus')
+  f.edit.revealDraft!(); await tick(); await tick()
+  expect(focus).not.toHaveBeenCalled()
+  expect(save).not.toHaveBeenCalled()
+  expect(f.textarea.value).toBe('未确认')
+  expect([...f.target.querySelectorAll('button')].filter(button => /Retry|Discard/.test(button.textContent ?? '')).every(button => button.disabled)).toBe(true)
+})
+
+it('copies the latest rejected DOM draft without saving or closing it', async () => {
+  const save = vi.fn(() => false)
+  const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+  const f = await popup(save)
+  f.textarea.value = 'latest DOM draft'
+  expect(f.edit.flushDraft?.()).toBe(false); await tick()
+  const button = [...f.target.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Copy draft')
+  expect(button).toBeDefined()
+  button!.click(); await tick()
+  expect(copy).toHaveBeenCalledWith('latest DOM draft')
+  expect(save).toHaveBeenCalledTimes(1)
+  expect(noteUi.edit).toBe(f.edit)
+  expect(f.textarea.value).toBe('latest DOM draft')
+})
+
+it('keeps the draft recoverable when clipboard access fails', async () => {
+  vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+  const f = await popup(() => false)
+  await f.type('recover me')
+  expect(f.edit.flushDraft?.()).toBe(false); await tick()
+  const button = [...f.target.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Copy draft')
+  expect(button).toBeDefined(); button!.click(); await tick(); await tick()
+  expect(noteUi.edit).toBe(f.edit)
+  expect(f.textarea.value).toBe('recover me')
+  expect(f.target.querySelector('[role="alert"]')).not.toBeNull()
+})
+
+it('removes the reveal callback when its component unmounts and keeps the rejected draft', async () => {
+  const f = await popup(() => false)
+  await f.type('keep after unmount')
+  expect(f.edit.revealDraft).toBeTypeOf('function')
+  const reveal = f.edit.revealDraft!
+  await unmount(components.pop()!)
+  expect(f.edit.revealDraft).toBeUndefined()
+  expect(f.edit.note).toBe('keep after unmount')
+  expect(f.edit.flushDraft?.()).toBe(false)
+  reveal(); await tick()
+  expect(f.edit.note).toBe('keep after unmount')
+})
+
+it('allows explicit discard of a read-only rejected draft without attempting to save again', async () => {
+  const save = vi.fn(() => false)
+  const f = await popup(save)
+  await f.type('unsaved before read-only')
+  f.edit.readOnly = true
+  expect(f.edit.flushDraft?.()).toBe(false); await tick()
+  const discard = [...f.target.querySelectorAll('button')].find(button => button.textContent?.includes('Discard'))!
+  expect(discard.disabled).toBe(false)
+  discard.click(); await tick()
+  expect(noteUi.edit).toBeNull()
+  expect(save).toHaveBeenCalledTimes(1)
 })

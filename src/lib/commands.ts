@@ -1,3 +1,4 @@
+import { reportFileInputBlocked } from './file-input-feedback'
 import {
   activeTab, saveActive, saveAs, exportCanvasCopy, openFile, closeTab, toggleMode, newCanvas,
 } from './tabs.svelte'
@@ -17,7 +18,7 @@ export async function cmdSave(): Promise<void> {
   const t = activeTab()
   if (!t) return
   if (t.kind === 'image') return  // images are read-only
-  try { await saveActive() } catch (e) { await showError(`Save failed: ${e}`) }
+  try { await saveActive() } catch (e) { if (!reportFileInputBlocked(e)) await showError(`Save failed: ${e}`) }
 }
 
 export async function cmdSaveAs(): Promise<void> {
@@ -37,7 +38,7 @@ export async function cmdSaveAs(): Promise<void> {
       && await import('./platform.svelte').then(({ isIOS }) => isIOS()).catch(() => false)
     if (useExportCopy) await exportCanvasCopy(t.id, p)
     else await saveAs(t.id, p)
-  } catch (e) { await showError(`Save As failed: ${e}`) }
+  } catch (e) { if (!reportFileInputBlocked(e)) await showError(`Save As failed: ${e}`) }
 }
 
 export async function cmdPrint(): Promise<void> {
@@ -47,7 +48,9 @@ export async function cmdPrint(): Promise<void> {
 export async function cmdCloseActive(): Promise<void> {
   const t = activeTab()
   if (!t) return
-  await closeTab(t.id, confirmDirtyClose)
+  try { await closeTab(t.id, confirmDirtyClose) } catch (error) {
+    if (!reportFileInputBlocked(error)) void showError(String(error))
+  }
 }
 
 export async function cmdNewCanvas(): Promise<void> {

@@ -1,3 +1,4 @@
+import { reportFileInputBlocked } from './file-input-feedback'
 import { tick } from 'svelte'
 import { invoke } from '@tauri-apps/api/core'
 import { sumiPageIdentity } from './sumi/files'
@@ -181,15 +182,22 @@ async function flushMountedDocument(tabId: string, leaving = false): Promise<voi
     if(leaving || !native.surface)finishSumiHandoff(native)
     return
   }
-  fileSourceGuard(tabId)?.check()
   const session = fileEditorSession(tabId)
   if (session) {
     const before = tabs.find(tab=>tab.id===tabId), path=before?.filePath, identity=session.baselineIdentity, epoch=markdownWriteEpoch(path??'')
     const snapshot = await (leaving ? session.flushForDetach() : session.owner.flush())
+    try { fileSourceGuard(tabId)?.check() } catch (error) {
+      reportFileInputBlocked(error)
+      throw error
+    }
     const tab = tabs.find(tab => tab.id === tabId)
     if (tab!==before || tab?.filePath!==path || fileEditorSession(tabId)!==session || session.baselineIdentity!==identity || markdownWriteEpoch(path??'')!==epoch) throw Error('GUEST_TAB_CHANGED')
     if (tab) tab.currentContent = snapshot.raw
     return
+  }
+  try { fileSourceGuard(tabId)?.check() } catch (error) {
+    reportFileInputBlocked(error)
+    throw error
   }
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId } }))
@@ -389,7 +397,7 @@ export async function activateHome(): Promise<void> {
     await flushMountedDocument(previous.id, true)
   } catch (error) {
     const { showError } = await import('./dialogs')
-    void showError(String(error))
+    if (!reportFileInputBlocked(error)) void showError(String(error))
     throw error
   }
   if (intent !== navigationIntent || activeId.value !== previous.id
@@ -403,10 +411,14 @@ export async function activate(id: string): Promise<void> {
   if (tabs.some((t) => t.id === id)) {
     const previous = activeId.value
     if (previous && previous !== id) {
-      if (fileEditorSession(previous) || sumiOwner(previous)) {
-        try { await flushMountedDocument(previous, true) } catch { return }
-        if (activeId.value !== previous || !tabs.some(tab => tab.id === id)) return
-      } else void flushMountedDocument(previous)
+      try { await flushMountedDocument(previous, true) } catch (error) {
+        if (!reportFileInputBlocked(error)) {
+          const { showError } = await import('./dialogs')
+          void showError(String(error))
+        }
+        return
+      }
+      if (activeId.value !== previous || !tabs.some(tab => tab.id === id)) return
     }
     activeId.value = id
     notifyInsights('onActiveDocChanged')
@@ -940,7 +952,7 @@ export async function setMode(id: string, mode: Mode): Promise<void> {
   const native=sumiOwner(id)
   if(native?.editor === 'native') {
     try { await flushMountedDocument(id,true) } catch(error) {
-      const {showError}=await import('./dialogs');void showError(String(error));return
+      const {showError}=await import('./dialogs');if (!reportFileInputBlocked(error)) void showError(String(error));return
     }
     if(!tabs.includes(t) || t.filePath!==native.path)return
   }
@@ -949,10 +961,19 @@ export async function setMode(id: string, mode: Mode): Promise<void> {
       fileSourceGuard(id)?.check()
       if(isDirty(id))await saveTab(id)
       if(isDirty(id))return
-    } catch(error) { const {showError}=await import('./dialogs');void showError(String(error));return }
+    } catch(error) { const {showError}=await import('./dialogs');if (!reportFileInputBlocked(error)) void showError(String(error));return }
   }
   const session = fileEditorSession(id)
-  if (session && !await session.setMode(mode)) return
+  try {
+    if (session && !await session.setMode(mode)) return
+    if (!session) fileSourceGuard(id)?.check()
+  } catch (error) {
+    if (!reportFileInputBlocked(error)) {
+      const { showError } = await import('./dialogs')
+      void showError(String(error))
+    }
+    return
+  }
   if (mode === 'source'
     && t.kind === 'code'
     && t.filePath.toLowerCase().endsWith('.json')

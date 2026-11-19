@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- Editor actions now explain blocked composition or unapplied source/annotation drafts instead of waiting indefinitely. Failed drafts can be copied, retried or explicitly discarded; annotation recovery controls remain visible.
+
 - Fixed a Rich editor IME state mismatch after mouse interactions that could disable editing commands and leave mode switches or tab closure waiting indefinitely.
 
 ## v6.1119.1 — 2026-11-19

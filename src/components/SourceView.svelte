@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { FileInputBlockedError } from '../editor-kit-v2/file-input-error'
+  import { showError } from '../lib/dialogs'
   import { hasPrimaryModifier } from '../lib/primary-modifier'
   import { untrack } from 'svelte'
   import { registerFileSourceGuard } from '../lib/file-editor-sessions'
@@ -61,7 +63,13 @@
     const id=tabId, element=textareaEl
     if (!id || !element) return
     return registerFileSourceGuard(id,{check() {
-      if (!element.isConnected || element!==textareaEl || localComposing || sourceInput?.composing() || sourceInput?.pending()) throw Error('GUEST_INPUT_PENDING')
+      if (!element.isConnected || element!==textareaEl) throw new FileInputBlockedError('source-pending', sourceInput ? 'detached-buffer' : 'GUEST_INPUT_PENDING')
+      if (localComposing || sourceInput?.composing()) throw new FileInputBlockedError('source-composing', sourceInput ? 'source-composing' : 'GUEST_INPUT_PENDING')
+      const pending = sourceInput?.pending()
+      if (pending) {
+        sourceInput?.reveal()
+        throw new FileInputBlockedError('source-pending', pending.reason)
+      }
     }})
   })
   let value = $derived(attachFileSource ? sourceDisplay : rawValue)
@@ -78,6 +86,11 @@
     })
     return () => { sourceInput?.detach(); sourceInput = undefined }
   })
+  async function copySourceDraft() {
+    try { await navigator.clipboard.writeText(textareaEl?.value ?? sourceDisplay) } catch {
+      void showError(t('noteedit.copyFailed'))
+    }
+  }
   function applySourceBuffer(next: string, selection?: [number, number]) {
     if (readOnly) return
     if (sourceInput && textareaEl) {
@@ -716,6 +729,7 @@
   {#if sourcePending}
     <div class="source-pending" role="status">
       {t(sourcePending.reason === 'stale-source' ? 'source.pendingStale' : 'source.pending')}
+      <button onclick={copySourceDraft}>{t('editorInput.copyDraft')}</button>
       <button disabled={sourceComposing || sourcePending.reason === 'stale-source'} onclick={() => sourceInput?.retry()}>{t('source.retryPending')}</button>
       <button disabled={sourceComposing} onclick={() => sourceInput?.discard()}>{t('source.discardPending')}</button>
     </div>

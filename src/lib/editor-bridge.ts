@@ -1,3 +1,4 @@
+import { reportFileInputBlocked } from './file-input-feedback'
 import { loadDesktopMermaid } from './adapters/mermaid-loader'
 import 'katex/dist/katex.min.css'
 import {
@@ -114,7 +115,7 @@ export async function mountRichEditor(
         }, { plugins: [desktopFrontmatterSelectionPlugin(view => {
           const owner = fileEditorSession(file.tab.id)?.owner
           if (owner) focusRichBodyEnd(view, owner)
-        }), ...file.plugins], onDelta: recordEditorDelta, externalSource: true, imeGuard })
+        }), ...file.plugins], onDelta: recordEditorDelta, externalSource: true, imeGuard, onInputBlocked: reportFileInputBlocked })
         registerFileEditorSession(file.tab.id, session)
         await session.setMode(file.tab.mode)
       }

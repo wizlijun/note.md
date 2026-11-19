@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte'
+  import { onDestroy, tick } from 'svelte'
   import { noteUi, styleVars } from './note-ui.svelte'
   import { t } from '../i18n/runtime.svelte'
   import { iconSvg } from '../context-menu/icons'
@@ -12,6 +12,21 @@
   let ta: HTMLTextAreaElement | undefined = $state()
   let blocked = $state(false)
   let composing = $state(false)
+  let copyFailed = $state(false)
+  let alive = true
+
+  function position() {
+    if (!root) return
+    const { width, height } = root.getBoundingClientRect()
+    root.style.left = `${Math.max(8, Math.min(editState.x, window.innerWidth - width - 8))}px`
+    root.style.top = `${Math.max(8, Math.min(editState.y, window.innerHeight - height - 8))}px`
+  }
+  $effect(() => {
+    // Recovery controls change the popup's height after a rejected save.
+    void blocked
+    void copyFailed
+    position()
+  })
 
   // 默认全选(编辑已有批注:直接改写);带 caret 时收起选区停在该位置
   // (提问:预填的 ? 不能被首个按键吃掉)
@@ -39,9 +54,22 @@
     return result
   }
   const flushDraft = () => attempt()
-  editState.flushDraft = flushDraft
-  onDestroy(() => {
+  const revealDraft = () => {
+    if (!alive || noteUi.edit !== editState) return
     cancelSave()
+    blocked = true
+    void tick().then(() => {
+      if (!alive || noteUi.edit !== editState) return
+      position()
+      if (!composing) ta?.focus({ preventScroll: true })
+    })
+  }
+  editState.flushDraft = flushDraft
+  editState.revealDraft = revealDraft
+  onDestroy(() => {
+    alive = false
+    cancelSave()
+    if (editState.revealDraft === revealDraft) delete editState.revealDraft
     if (editState.flushDraft === flushDraft) {
       if (noteUi.edit === editState) {
         editState.note = ta?.value ?? text
@@ -71,9 +99,18 @@
     if (noteUi.edit === editState) noteUi.edit = null
   }
   function discard() {
-    if (composing || editState.readOnly || noteUi.edit !== editState) return
+    if (composing || noteUi.edit !== editState) return
     cancelSave()
     noteUi.edit = null
+  }
+  async function copyDraft() {
+    if (noteUi.edit !== editState) return
+    try {
+      await navigator.clipboard.writeText(ta?.value ?? text)
+      copyFailed = false
+    } catch {
+      copyFailed = true
+    }
   }
   /** ⁇ 提问:尾部无问号则补全角 ？,保存并关闭。问题身份由文本中的问号承载,按钮只是糖 */
   function onAsk() {
@@ -99,7 +136,7 @@
   }
 </script>
 
-<svelte:window onmousedown={onWindowMousedown} />
+<svelte:window onmousedown={onWindowMousedown} onresize={position} />
 
 <div
   class="note-edit menu-panel"
@@ -122,8 +159,10 @@
   ></textarea>
   {#if blocked}
     <div class="pending" role="status">{t('noteedit.unsaved')}</div>
+    <button class="menu-row" onclick={copyDraft}>{t('editorInput.copyDraft')}</button>
+    {#if copyFailed}<div role="alert">{t('noteedit.copyFailed')}</div>{/if}
     <button class="menu-row" disabled={composing || editState.readOnly} onclick={() => close(true)}>{t('noteedit.retrySave')}</button>
-    <button class="menu-row" disabled={composing || editState.readOnly} onclick={discard}>{t('noteedit.discardChanges')}</button>
+    <button class="menu-row" disabled={composing} onclick={discard}>{t('noteedit.discardChanges')}</button>
   {/if}
   <div class="row">
     <button disabled={editState.readOnly} class="ask" onclick={onAsk} title={t('noteedit.askHint')}>⁇ {t('noteedit.ask')}</button>
@@ -146,6 +185,10 @@
     position: fixed;
     z-index: 1001;
     width: 280px;
+    box-sizing: border-box;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    overflow: auto;
     padding: 6px;
     font: inherit;
     font-size: 13px;

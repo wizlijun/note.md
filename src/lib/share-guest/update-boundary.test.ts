@@ -22,7 +22,7 @@ import { mount, unmount, tick } from 'svelte'
 import { BrowserMediaResolver } from '@moraya/core/adapters/browser-media-resolver'
 import { mountFileEditor } from '../../editor-kit-v2/file-main'
 import { registerFileEditorSession, closeFileEditorSession, captureFileSave } from '../file-editor-sessions'
-import { tabs, activeId, withGuestFileUpdate, persistMarkdownSnapshot, markdownWriteEpoch, isReadOnlyTab, isGuestUpdateBusy, saveTab, saveAs } from '../tabs.svelte'
+import { tabs, activeId, withGuestFileUpdate, persistMarkdownSnapshot, markdownWriteEpoch, isReadOnlyTab, isGuestUpdateBusy, saveTab, saveAs, activate, setMode } from '../tabs.svelte'
 import { sha256Sync } from '../share-merge/hash'
 import SourceHarness from './UpdateSourceHarness.svelte'
 import {noteUi} from '../note-anno/note-ui.svelte'
@@ -105,6 +105,26 @@ it('legacy MDX Source has real composition admission and restores its original w
   textarea.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
   await withGuestFileUpdate([path],async()=>{expect(textarea.readOnly).toBe(true);expect(await readFile(path,'utf8')).toContain('中');await writeFile(path,'<Updated />\n');return{value:true,writes:{[path]:sha256Sync('<Updated />\n')}}})
   await tick();expect(textarea.readOnly).toBe(false);expect(tab.currentContent).toBe('<Updated />\n')
+ }finally{await unmount(component);tabs.length=0;activeId.value=null;document.body.replaceChildren();await rm(root,{recursive:true,force:true})}
+})
+it.each(['activate','mode'] as const)('legacy MDX Source keeps active composition when attempting %s',async action=>{
+ const root=await mkdtemp(join(tmpdir(),'guest-mdx-navigation-')),path=join(root,'a.mdx')
+ tabs.push({id:'mdx-composing',filePath:path,title:'a.mdx',kind:'mdx',mode:'source',currentContent:'<Widget />\n',initialContent:'<Widget />\n',externalState:'fresh',externalBannerDismissed:false,lastKnownHash:'',lastKnownMtime:0})
+ const tab=tabs[tabs.length-1]
+ tabs.push({...tab,id:'mdx-other',filePath:join(root,'other.mdx')})
+ activeId.value=tab.id
+ const component=mount(SourceHarness,{target:document.body,props:{tab}});await tick()
+ const textarea=document.querySelector('textarea')!
+ const transition=()=>action==='activate'?activate('mdx-other'):setMode(tab.id,'rich')
+ try {
+  textarea.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}))
+  textarea.value='<Widget text="未完成" />\n';textarea.dispatchEvent(new Event('input',{bubbles:true}))
+  await transition();await tick()
+  expect(activeId.value).toBe(tab.id);expect(tab.mode).toBe('source');expect(textarea.value).toContain('未完成')
+  textarea.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}))
+  await transition();await tick()
+  if(action==='activate')expect(activeId.value).toBe('mdx-other')
+  else expect(tab.mode).toBe('rich')
  }finally{await unmount(component);tabs.length=0;activeId.value=null;document.body.replaceChildren();await rm(root,{recursive:true,force:true})}
 })
 it('a queued real autosave timer is cancelled across the update window',async()=>{

@@ -1380,6 +1380,13 @@ export const ja: Record<keyof Messages, string> = {
   'daily.toolbar.find': 'Find',
   'daily.emptyDay': '(empty)',
 
+  'editorInput.richComposing': "文字変換が続いているため、操作を完了できませんでした。変換を確定または取り消してから再試行してください。文書は保持されています。",
+  'editorInput.sourceComposing': "ソース内の文字変換を確定または取り消してから再試行してください。下書きは保持されています。",
+  'editorInput.sourcePending': "ソースの変更を適用できませんでした。ソース編集欄で下書きをコピーまたは解決してから再試行してください。",
+  'editorInput.annotationPending': "注釈の変更を適用できませんでした。注釈の下書きを解決してから再試行してください。文書は保持されています。",
+  'editorInput.copyDraft': "下書きをコピー",
+  'noteedit.copyFailed': "コピーできませんでした。テキストを選択して手動でコピーしてください。",
+
   // Tray menu
   'tray.dailyNotes': 'デイリーノート',
 }
