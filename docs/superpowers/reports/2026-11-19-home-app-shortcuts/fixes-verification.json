@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "Direct disabled shortcut focuses and scrolls to its visible details; pin stays at slot 0",
+    "Delayed save failure preserves pin and dialog focus; Escape restores the shortcut",
+    "PDF details show actual existing Plugins menu path without executing export",
+    "Opening directory during slow initial load shows loading, never a false empty state",
+    "Confirmed empty installed inventory shows empty directory and removes uninstalled pins"
+  ],
+  "errors": [],
+  "status": "PASS"
+}

@@ -1,0 +1,22 @@
+{
+  "note.md-6.1119.1-aarch64.dmg": {
+    "bytes": 15891188,
+    "sha256": "63fc8b30113f0537c8cbd601d1c458b9e985a587aa9824de7d8d9cff22422fa0",
+    "matchesTrustedBuild": true
+  },
+  "note.md-aarch64.app.tar.gz": {
+    "bytes": 16010796,
+    "sha256": "687a7d7fd2be1809f5f08c00163e949d9e4aeaae658373bcab5ed8fcf1706209",
+    "matchesTrustedBuild": true
+  },
+  "note.md-aarch64.app.tar.gz.sig": {
+    "bytes": 416,
+    "sha256": "5d53a62870babf8909729a18a8401aefbbd554dba7c83e00f81baecb228e0195",
+    "matchesTrustedBuild": true
+  },
+  "latest.json": {
+    "bytes": 740,
+    "sha256": "78dffeed6eb912a436c855a70db6dd37c442684673901a6ccf8d3999d34a72d3",
+    "matchesTrustedBuild": true
+  }
+}

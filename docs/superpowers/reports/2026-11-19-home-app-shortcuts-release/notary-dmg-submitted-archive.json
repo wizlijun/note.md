@@ -1,0 +1,8 @@
+{
+  "stage": "signed DMG submitted before stapling",
+  "path": "/tmp/note.md-6.1119.1-aarch64.dmg",
+  "submission_id": "27f99172-ac9f-45fd-b9cf-a4412d13966b",
+  "bytes": 15889498,
+  "sha256": "674b9342452e9906720c0dbb22f0c11cc538b66e5e3ad9b7a0cd85cd7df21352",
+  "captured_at": "2026-11-19T05:41:12.425693+00:00"
+}

@@ -7,6 +7,10 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1119.1 — 2026-11-19
+
+- The desktop home page now puts creation tools and eight app shortcuts in one aligned grid, with installed-app search, categories, pinning and position editing. Daily suggestions stay stable; disabled pinned apps keep their positions and explain availability. Vault statistics remain visible while secondary folder controls are collapsed.
+
 ## v6.1117.1 — 2026-11-17
 
 - Fixed the Vault welcome page and settings “Show in file manager” actions failing with a path permission error. Both now reveal and select the Vault folder.

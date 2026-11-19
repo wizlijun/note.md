@@ -122,17 +122,35 @@ export function selectSourceFileView(tab: Tab): void {
   void setMode(tab.id, 'source')
 }
 
-export function selectFileView(tab: Tab, view: FileViewRef): void {
-  const apply=() => {
+export function selectFileView(tab: Tab, view: FileViewRef, complete?: (accepted: boolean) => void): void {
+  const intent = Symbol(), path = tab.filePath
+  transitions.set(tab.id, intent)
+  if (!needsNativeHandoff(tab, view) && tab.mode === 'rich') {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId: tab.id } }))
-    void setMode(tab.id, 'rich')
     setFileViewSelection(tab.id, { choice: { ...view }, attempt: (selection(tab.id)?.attempt ?? 0) + 1 })
+    transitions.delete(tab.id)
+    complete?.(true)
+    return
   }
-  if(needsNativeHandoff(tab,view))withNativeHandoff(tab,async () => {
-    await setMode(tab.id,'rich')
-    if(tab.mode==='rich')setFileViewSelection(tab.id,{choice:{...view},attempt:(selection(tab.id)?.attempt ?? 0)+1})
+  void (async () => {
+    if (needsNativeHandoff(tab, view)) {
+      const { prepareFileViewTransition } = await import('../tabs.svelte')
+      await prepareFileViewTransition(tab.id)
+    } else if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('notemd:flush-doc', { detail: { tabId: tab.id } }))
+    }
+    if (transitions.get(tab.id) !== intent || tab.filePath !== path) return false
+    await setMode(tab.id, 'rich')
+    if (transitions.get(tab.id) !== intent || tab.filePath !== path || tab.mode !== 'rich') return false
+    setFileViewSelection(tab.id, { choice: { ...view }, attempt: (selection(tab.id)?.attempt ?? 0) + 1 })
+    return true
+  })().catch(async error => {
+    const { showError } = await import('../dialogs')
+    void showError(String(error))
+    return false
+  }).then(accepted => complete?.(accepted)).finally(() => {
+    if (transitions.get(tab.id) === intent) transitions.delete(tab.id)
   })
-  else apply()
 }
 
 export function fallbackFileView(tab: Tab, view: FileViewRef, reason: FileViewFallbackReason): void {

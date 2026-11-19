@@ -1,0 +1,27 @@
+test_complete_css_dark_palette_required (test_home_checks.EmbeddedTests.test_complete_css_dark_palette_required) ... ok
+test_complete_signed_module_witnesses (test_home_checks.EmbeddedTests.test_complete_signed_module_witnesses) ... ok
+test_each_role_missing_rejected (test_home_checks.EmbeddedTests.test_each_role_missing_rejected) ... ok
+test_seven_slot_compiled_default_rejected (test_home_checks.EmbeddedTests.test_seven_slot_compiled_default_rejected) ... ok
+test_share_only_module_rejected (test_home_checks.EmbeddedTests.test_share_only_module_rejected) ... ok
+test_unembedded_whole_module_rejected (test_home_checks.EmbeddedTests.test_unembedded_whole_module_rejected) ... ok
+test_app_and_dmg_tickets_bound (test_home_checks.NotaryTests.test_app_and_dmg_tickets_bound) ... ok
+test_current_submitted_archive_binds_apple_job (test_home_checks.NotaryTests.test_current_submitted_archive_binds_apple_job) ... ok
+test_old_or_mismatched_cdhash_rejected (test_home_checks.NotaryTests.test_old_or_mismatched_cdhash_rejected) ... ok
+test_unaccepted_or_wrong_arch_rejected (test_home_checks.NotaryTests.test_unaccepted_or_wrong_arch_rejected) ... ok
+test_exact_accepted_source (test_home_checks.SourceTests.test_exact_accepted_source) ... ok
+test_same_ancestor_different_bytes_rejected (test_home_checks.SourceTests.test_same_ancestor_different_bytes_rejected) ... ok
+test_all_six_exact (test_public_host.FrozenTests.test_all_six_exact) ... ok
+test_changed_bytes (test_public_host.FrozenTests.test_changed_bytes) ... ok
+test_missing_or_extra_assets (test_public_host.FrozenTests.test_missing_or_extra_assets) ... ok
+test_same_count_duplicate (test_public_host.FrozenTests.test_same_count_duplicate) ... ok
+test_source_mismatch (test_public_host.FrozenTests.test_source_mismatch) ... ok
+test_tampered_digest (test_public_host.FrozenTests.test_tampered_digest) ... ok
+test_version_mismatch (test_public_host.FrozenTests.test_version_mismatch) ... ok
+test_full_and_ranged (test_public_host.ResponseTests.test_full_and_ranged) ... ok
+test_truncated_body (test_public_host.ResponseTests.test_truncated_body) ... ok
+test_wrong_range_or_full_status (test_public_host.ResponseTests.test_wrong_range_or_full_status) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 0.029s
+
+OK

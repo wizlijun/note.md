@@ -1,0 +1,130 @@
+{
+  "date": "2026-11-19",
+  "branch": "feat/home-app-shortcuts",
+  "base": "969f8e73",
+  "product_source_commit": "df353a18ae4b26827e3e26e8ccdf18d71e0d694b",
+  "frontend_source_commit": "e4e6b56c513a302dfc0930e8508a418f89656f64",
+  "frontend": {
+    "files": 445,
+    "tests_passed": 6006,
+    "exit_code": 0
+  },
+  "typecheck": {
+    "errors": 0,
+    "existing_warnings": 30
+  },
+  "production_pipeline": {
+    "exit_code": 0
+  },
+  "native": {
+    "state": 8,
+    "installed_inventory": 7,
+    "window_presentation": 2,
+    "tray": 10,
+    "total_passed": 27,
+    "all_exit_codes": 0,
+    "incremental": false,
+    "toolchain": "1.99.0"
+  },
+  "browser": {
+    "interaction_checks": 19,
+    "page_errors": 0,
+    "real_vault": false
+  },
+  "logs": [
+    {
+      "path": "tasks/home-full-tests-verified.log",
+      "sha256": "073bd261a4945185b4a8380d4ffc09085a0dfc4421a32ee43eb55fe82243dcb9"
+    },
+    {
+      "path": "tasks/home-typecheck-verified.log",
+      "sha256": "ce7a2caa10186952f63e43eb8d3d7544f7167190b342f0d017b5af755b2a526f"
+    },
+    {
+      "path": "tasks/home-build-verified.log",
+      "sha256": "005ab1bbe4bb457129f06a623fdf2d09a5b60f19ecabe645ce85608d21f77275"
+    },
+    {
+      "path": "tasks/home-ui/check-final.log",
+      "sha256": "ca8850fb89ac36119d29569f21f225aad48b0a455fc3e534e3ed396f1abbe8dd"
+    },
+    {
+      "path": "tasks/home-ui/fixes-final.log",
+      "sha256": "7229870ecbc6736901d84b8467f7faafe15dc14831988a1f2ab48128c1f0e2aa"
+    },
+    {
+      "path": "tasks/home-native-final-commands-tests-installed_inventory.log",
+      "sha256": "7c80f3c5aa9ec2c0cc1654dd25283f12df618aadb37352c559d5c92115eacf26"
+    },
+    {
+      "path": "tasks/home-native-final-state-tests.log",
+      "sha256": "b9e333f521a2dae2f929c93d64202eba69ebaf12462c1d29b9ae2e871f3a8f25"
+    },
+    {
+      "path": "tasks/home-native-final-tray-tests.log",
+      "sha256": "05fd8dc5730767fb594762e0887aa89e496617ed444c09bd923b2772df9ee525"
+    },
+    {
+      "path": "tasks/home-native-final-windows-tests-present_plugin_window.log",
+      "sha256": "cb3db5252fb5558d7a027dad5008d635cdf40bfe3a03735ce89d20c802a3c41c"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "all-apps.png",
+      "sha256": "276d58a16cc616608f9cbea29b08ac7e0f02795681786fb92dcea14c3251c8e6"
+    },
+    {
+      "path": "home-cold.png",
+      "sha256": "01f361ae9d4c8a9a3ffb174ebdce719af029f988bac73dd609bd40e943644c84"
+    },
+    {
+      "path": "home-dark.png",
+      "sha256": "cb6821a067270dd0d1ef2afef20f7e39170119e1e1780b0ec26d87b842e8c9bb"
+    },
+    {
+      "path": "home-light.png",
+      "sha256": "65c879ec38a6c72856752187615bcf23faaac5d78353df27fabc082dd3764cad"
+    },
+    {
+      "path": "home-long-name.png",
+      "sha256": "3848f21991337df300fca230d9fb56ca0656f88a3c4fc44daa98f5a1b941e919"
+    },
+    {
+      "path": "home-narrow-dark.png",
+      "sha256": "7266159fe43b31ea2021c5561605ea60161e7c5c1cf487f35ae4639eddfbe009"
+    },
+    {
+      "path": "home-narrow-light.png",
+      "sha256": "d985ba77fdf8eaad208e075e21da0dca3fd4849bd77943cbf8924db7545233a2"
+    },
+    {
+      "path": "menu-hover.png",
+      "sha256": "f0d82ea3bd4ede4ebd0d58dd0e45f1f7d9ec8c19ad479d36af1fd057c50d9c54"
+    },
+    {
+      "path": "vault-error.png",
+      "sha256": "2df25b1562a0ef968be1e35c78952e14c589ad7aa7eb789eee3cd6b4591fbd57"
+    },
+    {
+      "path": "vault-expanded.png",
+      "sha256": "16244ba309ba943feb0e9e521b96bb6b642805bef1b7e2a9b2e1b43c52b2b8e7"
+    }
+  ],
+  "native_source_sha256": [
+    "6764df1a6d2324ec5b216bcc9020af596d3dbd981810d5a5581951c0087a1cf8  src-tauri/src/plugin_runtime/state.rs",
+    "4d44e809b1f2456b789665351be1b1d818588c5da08fa6559ef05e99c0b4f649  src-tauri/src/plugin_runtime/commands.rs",
+    "0b7f5f380d8446e38d92239fae7f3d9b6c63e1f5f91384996ed9dd48779059b4  src-tauri/src/plugin_runtime/windows.rs",
+    "a86ba566c61c95739b81065192a5eca5a5700abcd632ca780a1615ebc2203753  src-tauri/src/plugin_runtime/tray.rs"
+  ],
+  "limits": [
+    "Implementation verification only; subsequent host publication requires separate frozen-tag and artifact evidence",
+    "No OLED or color e-ink hardware measurements",
+    "Existing Sumi initial fullscreen async presentation has no terminal visibility ACK"
+  ],
+  "reviews": {
+    "status": "PASS",
+    "important_findings_remaining": 0,
+    "last_review_source": "df353a18ae4b26827e3e26e8ccdf18d71e0d694b"
+  }
+}

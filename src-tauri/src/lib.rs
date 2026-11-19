@@ -2579,7 +2579,10 @@ fn activate_plugin_tray_target<R: tauri::Runtime>(
 ) {
     use crate::plugin_runtime::windows;
     let existed = app.get_webview_window(&windows::window_label(plugin_id, window)).is_some();
-    if let Err(e) = windows::open_plugin_window(app, plugin_id, window, None) {
+    if let Err(e) = crate::plugin_runtime::tray::open_manual_window(
+        || windows::open_plugin_window(app, plugin_id, window, None),
+        || { let _ = app.emit_to("main", "plugin-manual-opened", plugin_id); },
+    ) {
         dlog(&format!("tray activate {plugin_id}:{window} failed: {e}"));
         return;
     }

@@ -377,7 +377,29 @@ function notifyInsights(method: 'onActiveDocChanged' | 'onModeChanged'): void {
   void import('./insights/tracker.svelte').then((m) => m[method]()).catch(() => {})
 }
 
+let navigationIntent = 0
+
+/** Return home without saving, closing tabs or discarding mounted drafts. */
+export async function activateHome(): Promise<void> {
+  const intent = ++navigationIntent
+  const previous = activeTab()
+  if (!previous) return
+  const path = previous.filePath
+  try {
+    await flushMountedDocument(previous.id, true)
+  } catch (error) {
+    const { showError } = await import('./dialogs')
+    void showError(String(error))
+    throw error
+  }
+  if (intent !== navigationIntent || activeId.value !== previous.id
+    || !tabs.includes(previous) || previous.filePath !== path) return
+  activeId.value = null
+  notifyInsights('onActiveDocChanged')
+}
+
 export async function activate(id: string): Promise<void> {
+  ++navigationIntent
   if (tabs.some((t) => t.id === id)) {
     const previous = activeId.value
     if (previous && previous !== id) {
@@ -501,7 +523,7 @@ function extOf(path: string): string {
 async function openAsPlainText(path: string): Promise<void> {
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
-    activate(existing.id)
+    await activate(existing.id)
     return
   }
   const content = await readTextWithPermissionPrompt(path)
@@ -526,7 +548,7 @@ async function openAsPlainText(path: string): Promise<void> {
     pendingExternal: undefined,
   }
   tabs.push(tab)
-  activate(tab.id)
+  await activate(tab.id)
   await pushRecentFile(path)
   await startWatchingTab(tab)
 }
@@ -564,7 +586,7 @@ export async function openFile(path: string): Promise<void> {
 
   const existing = tabs.find((t) => t.filePath === path)
   if (existing) {
-    activate(existing.id)
+    await activate(existing.id)
     return
   }
 
@@ -594,7 +616,7 @@ export async function openFile(path: string): Promise<void> {
     path = opened.canonicalPath
     const canonicalExisting = tabs.find((t) => t.filePath === path)
     if (canonicalExisting) {
-      activate(canonicalExisting.id)
+      await activate(canonicalExisting.id)
       return
     }
     content = opened.text
@@ -635,7 +657,7 @@ export async function openFile(path: string): Promise<void> {
     canvasRevision,
   }
   tabs.push(tab)
-  activate(tab.id)
+  await activate(tab.id)
   await pushRecentFile(path)
   await startWatchingTab(tab)
   // Sync-to-Vault: if this is a tracked vault copy whose source changed, prompt.

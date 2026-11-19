@@ -1,0 +1,7 @@
+{
+  "stage": "signed App archive before notarization/stapling",
+  "path_observed_in_build_log": "/var/folders/gk/672bsb6j7y5dxk062vpjdxzh0000gn/T/.tmpL72jBE/note.md.zip",
+  "bytes": 15714919,
+  "sha256": "3efae1a28ef6107927ef7590e412cdf94dd6ea7ff9e27f3604e024c3ecdbbc5a",
+  "captured_at": "2026-11-19T05:35:57.215859+00:00"
+}

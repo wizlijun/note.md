@@ -20,6 +20,7 @@
   let error = $state<string | null>(null)
   let actionError = $state<string | null>(null)
   let copied = $state(false)
+  let expanded = $state(false)
   let refresh = () => {}
   const root = $derived(sotvaultStore.vaultRoot)
   const rules = $derived(vaultDocumentRules(pluginRuntime.manifests))
@@ -110,15 +111,15 @@
 <section class="vault-overview" aria-label={t('vaultOverview.title')} ondblclick={(event) => event.stopPropagation()}>
   <div class="heading">
     <h2>{root ? t('vaultOverview.title') : t('vaultOverview.unconfigured')}</h2>
-    {#if root}<button onclick={() => void action(openVaultManagement)}>{t('vaultOverview.settings')}</button>{/if}
+    {#if root}<button aria-expanded={expanded} onclick={() => { expanded = !expanded }}>{t(expanded ? 'vaultOverview.hideDetails' : 'vaultOverview.showDetails')}</button>{/if}
   </div>
   {#if root}
     <strong class="vault-name">{name}</strong>
-    <div class="path-row">
+    {#if expanded}<div class="path-row">
       <span class="path" title={root}>{pathLabel}</span>
       <button aria-label={t('vaultOverview.copyPath')} onclick={() => void action(async () => { await writeText(root); copied = true })}>{copied ? t('vaultOverview.copied') : t('vaultOverview.copy')}</button>
       <button onclick={() => void action(() => revealItemInDir(root))}>{t('vaultOverview.reveal')}</button>
-    </div>
+    </div>{/if}
     <div class="statistics" aria-live="polite" aria-busy={busy}>
       {#if stats}
         {#if stats.skipped > 0}<span class="partial">{t('vaultOverview.partial', { n: stats.skipped })}</span>{/if}
@@ -129,11 +130,13 @@
       {:else if busy}
         <p>{t('vaultOverview.counting')}</p>
       {/if}
+      {#if stats && busy}<p role="status">{t('vaultOverview.counting')}</p>{/if}
       {#if error}<p class="error" role="alert">{t('vaultOverview.unavailable')}<br />{error}</p>{/if}
-      <div class="footer">
+      {#if expanded}<div class="footer">
         <span>{#if stats?.completedAt}{t(error ? 'vaultOverview.lastCounted' : 'vaultOverview.countedAt', { time: new Date(stats.completedAt).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' }) })}{/if}</span>
         <button disabled={busy} onclick={() => refresh()}>{busy ? t('vaultOverview.counting') : t('vaultOverview.refresh')}</button>
       </div>
+      <button onclick={() => void action(openVaultManagement)}>{t('vaultOverview.settings')}</button>{/if}
     </div>
   {:else}
     <p>{t('vaultOverview.hint')}</p>
@@ -143,7 +146,7 @@
 </section>
 
 <style>
-  .vault-overview { margin-top: 24px; padding: 18px; border: 1px solid color-mix(in srgb, CanvasText 15%, transparent); border-radius: 10px; color: CanvasText; }
+  .vault-overview { margin-top: 32px; padding: 18px; border: 1px solid color-mix(in srgb, CanvasText 15%, transparent); border-radius: 10px; color: CanvasText; }
   .heading, .path-row, .footer, .metrics { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
   .heading, .footer { justify-content: space-between; }
   h2 { font-size: 13px; font-weight: 500; margin: 0; color: GrayText; }

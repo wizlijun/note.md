@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/bruce/git/mdeditor/tasks/home-release-20261119/verification/verify-host.py", line 154, in <module>
+    binding=c.verify_notary(notary_log,report['commands'][-1]['stderr'],label,h.file_info(dmg)['sha256'] if label=='dmg' else None)
+  File "/Users/bruce/git/mdeditor/tasks/home-release-20261119/verification/home_checks.py", line 97, in verify_notary
+    assert match, 'Missing actual codesign CDHash'
+           ^^^^^
+AssertionError: Missing actual codesign CDHash

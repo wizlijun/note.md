@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tabs, activeId, activeTab, isDirty, activate, closeTab, closeTabs } from '../lib/tabs.svelte'
+  import { tabs, activeId, activeTab, isDirty, activate, activateHome, closeTab, closeTabs } from '../lib/tabs.svelte'
   import { formFactor } from '../lib/platform.svelte'
   import { confirmDirtyClose } from '../lib/dialogs'
   import { t } from '../lib/i18n/store.svelte'
@@ -13,6 +13,8 @@
   import type { EnabledWhenContext } from '../lib/plugins/types'
   import { sotvaultStore, isMirroredSource } from '../lib/sotvault.svelte'
   import { displayTitleForDocument, SYNC_MARK } from '../lib/window-title'
+
+  function onHome() { void activateHome().catch(() => {}) }
 
   async function onClose(e: MouseEvent, id: string) {
     e.stopPropagation()
@@ -124,7 +126,7 @@
       return
     }
     try {
-      await dispatchPluginCommand(item.pluginId, item.command)
+      await dispatchPluginCommand(item.pluginId, item.command, 'tab-context')
     } catch (e) {
       console.warn('[TabBar] context menu dispatch failed:', e)
     }
@@ -160,9 +162,12 @@
 <svelte:window onmousedown={onWindowMouseDown} onkeydown={onWindowKeyDown} />
 
 {#if formFactor.value !== 'phone'}
-  {#if tabs.length > 1 && active}
+  {#if formFactor.value === 'desktop' ? tabs.length > 0 : tabs.length > 1 && active}
     <div class="bar">
       <div class="tabs" bind:this={tabsContainer}>
+        {#if formFactor.value === 'desktop'}
+          <button class="tab" class:active={activeId.value === null} data-home-tab onclick={onHome}>{t('tabBar.home')}</button>
+        {/if}
         {#each tabs as tab (tab.id)}
           <button
             class="tab"
@@ -179,9 +184,9 @@
         {/each}
       </div>
       <div class="spacer"></div>
-      <div class="right">
+      {#if active}<div class="right">
         <ModeToggle tab={active} />
-      </div>
+      </div>{/if}
     </div>
   {/if}
 

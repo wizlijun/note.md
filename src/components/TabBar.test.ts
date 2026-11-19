@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, tick, unmount } from 'svelte'
 import TabBar from './TabBar.svelte'
+import { formFactor } from '../lib/platform.svelte'
 import { i18n } from '../lib/i18n/store.svelte'
 
 const mocked = vi.hoisted(() => {
@@ -14,6 +15,9 @@ const mocked = vi.hoisted(() => {
   return {
     tabs,
     activeId,
+    pluginRuntime: { manifests: [] as any[] },
+    dispatchPlugin: vi.fn(async () => {}),
+    activateHome: vi.fn(async () => { activeId.value = null }),
     activate: vi.fn((id: string) => { activeId.value = id }),
     closeTab: vi.fn(async () => true),
     closeTabs: vi.fn(async () => true),
@@ -27,6 +31,7 @@ vi.mock('../lib/tabs.svelte', () => ({
   activeTab: () => mocked.tabs.find((tab) => tab.id === mocked.activeId.value) ?? null,
   isDirty: () => false,
   activate: mocked.activate,
+  activateHome: mocked.activateHome,
   closeTab: mocked.closeTab,
   closeTabs: mocked.closeTabs,
   isManagedMemoryTab: () => false,
@@ -37,7 +42,7 @@ vi.mock('../lib/platform.svelte', () => ({
   platform: async () => 'macos',
 }))
 vi.mock('../lib/dialogs', () => ({ confirmDirtyClose: mocked.confirmDirtyClose }))
-vi.mock('../lib/plugins/runtime.svelte', () => ({ pluginRuntime: { manifests: [] }, dispatchPluginCommand: vi.fn() }))
+vi.mock('../lib/plugins/runtime.svelte', () => ({ pluginRuntime: mocked.pluginRuntime, dispatchPluginCommand: mocked.dispatchPlugin }))
 vi.mock('../lib/settings.svelte', () => ({ getPluginScopedAll: () => ({}), pluginScopedVersion: { value: 0 } }))
 vi.mock('../lib/sotvault.svelte', () => ({ sotvaultStore: { tick: 0, vaultRoot: null }, isMirroredSource: () => false }))
 vi.mock('../lib/window-title', () => ({
@@ -46,7 +51,7 @@ vi.mock('../lib/window-title', () => ({
 }))
 
 function openMenu(index: number) {
-  const tab = document.querySelectorAll<HTMLButtonElement>('button.tab')[index]
+  const tab = document.querySelectorAll<HTMLButtonElement>('button.tab:not([data-home-tab])')[index]
   tab.dispatchEvent(new MouseEvent('contextmenu', {
     bubbles: true,
     cancelable: true,
@@ -60,8 +65,12 @@ describe('TabBar close context menu', () => {
 
   beforeEach(() => {
     Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() })
+    mocked.pluginRuntime.manifests = []
+    mocked.dispatchPlugin.mockClear()
     mocked.activeId.value = 'b'
     mocked.activate.mockClear()
+    mocked.activateHome.mockClear()
+    formFactor.value = 'desktop'
     mocked.closeTab.mockClear()
     mocked.closeTabs.mockClear()
     mocked.confirmDirtyClose.mockClear()
@@ -123,4 +132,53 @@ describe('TabBar close context menu', () => {
     expect(mocked.closeTabs).toHaveBeenCalledWith(['a', 'b', 'c'], mocked.confirmDirtyClose)
     expect(document.querySelector('.tab-ctx-menu')).toBeNull()
   })
+  it('dispatches tab-context source even when the same command has a disabled main-menu gate', async () => {
+    await unmount(component!); component = undefined
+    mocked.pluginRuntime.manifests = [{ id:'fixture',name:'Fixture',version:'1',binary:'',host_capabilities:[],
+      menus:[{command:'open',label:'Main menu',location:'plugins',enabled_when:'false'}],
+      context_menus:[{command:'open',label:'Context entry',location:'tab',enabled_when:'true'}],
+    }]
+    component = mount(TabBar, {target:document.body}); await tick()
+    openMenu(1); await tick()
+    const item = [...document.querySelectorAll<HTMLButtonElement>('.tab-ctx-item')].find(button => button.textContent?.includes('Context entry'))
+    expect(item?.disabled).toBe(false)
+    item?.click(); await tick()
+    expect(mocked.dispatchPlugin).toHaveBeenCalledExactlyOnceWith('fixture','open','tab-context')
+  })
+
+  it('shows home beside one file, marks home selected and hides mode controls there', async () => {
+    await unmount(component!); component = undefined
+    const removed = mocked.tabs.splice(1)
+    mocked.activeId.value = null
+    component = mount(TabBar, { target: document.body }); await tick()
+    const home = document.querySelector<HTMLButtonElement>('[data-home-tab]')
+    expect(home?.textContent).toContain('首页')
+    expect(home?.classList.contains('active')).toBe(true)
+    expect(document.querySelectorAll('button.tab')).toHaveLength(2)
+    expect(document.querySelector('.right')).toBeNull()
+    home?.click()
+    expect(mocked.activateHome).toHaveBeenCalledOnce()
+    mocked.tabs.push(...removed)
+  })
+
+  it('keeps phone/tablet behavior and has no redundant strip when no files are open', async () => {
+    await unmount(component!); component = undefined
+    const original = mocked.tabs.splice(0)
+    component = mount(TabBar, { target: document.body }); await tick()
+    expect(document.querySelector('.bar')).toBeNull()
+    await unmount(component); component = undefined
+    mocked.tabs.push(original[0]); mocked.activeId.value = original[0].id
+    for (const factor of ['phone', 'tablet'] as const) {
+      formFactor.value = factor
+      component = mount(TabBar, { target: document.body }); await tick()
+      expect(document.querySelector('.bar')).toBeNull()
+      await unmount(component); component = undefined
+    }
+    mocked.tabs.push(...original.slice(1))
+    component = mount(TabBar, { target: document.body }); await tick()
+    expect(document.querySelector('.bar')).not.toBeNull()
+    expect(document.querySelector('[data-home-tab]')).toBeNull()
+    expect(document.querySelector('.right')).not.toBeNull()
+  })
+
 })

@@ -30,10 +30,10 @@ function harness(current: Tab | null) {
   const deps = {
     activeTab: vi.fn(() => active),
     pickOpenFile: vi.fn(async () => '/vault/diary/picked.timeline.md' as string | null),
-    openFile: vi.fn(async () => { active = tab() }),
+    openFile: vi.fn(async (path: string) => { active = tab(); active.filePath = path }),
     flush: vi.fn(),
     setRichMode: vi.fn(),
-    openView: vi.fn((detail: OpenFileViewDetail) => opened.push(detail)),
+    openView: vi.fn((detail: OpenFileViewDetail, _complete?: (accepted: boolean) => void) => opened.push(detail)),
     unsupported: vi.fn(),
   }
   return { deps, opened, setActive(value: Tab | null) { active = value } }
@@ -75,6 +75,15 @@ describe('dispatchFileViewCommand', () => {
     expect(h.opened).toHaveLength(1)
   })
 
+  it('does not select a stale matching tab when the picked file was not opened', async () => {
+    const h = harness(tab())
+    h.deps.openFile.mockResolvedValue(undefined)
+    const accepted = vi.fn()
+    await dispatchFileViewCommand(manifest(), 'open-timeline', h.deps, { alwaysPickFile: true, onAccepted: accepted })
+    expect(h.deps.openView).not.toHaveBeenCalled()
+    expect(accepted).not.toHaveBeenCalled()
+  })
+
   it('always asks for a file when the menu declares an open dialog', async () => {
     const current = tab()
     const h = harness(current)
@@ -110,6 +119,16 @@ describe('dispatchFileViewCommand', () => {
     expect(h.deps.unsupported).toHaveBeenCalledOnce()
     expect(h.deps.openView).not.toHaveBeenCalled()
     setMemoryProjectionVaultRoot(null)
+  })
+
+  it('does not count a delayed acceptance after navigation leaves the requested file', async () => {
+    const current = tab(), h = harness(current), accepted = vi.fn()
+    let complete!: (accepted: boolean) => void
+    h.deps.openView.mockImplementation((_detail, callback) => { complete = callback!; return 0 })
+    await dispatchFileViewCommand(manifest(), 'open-timeline', h.deps, { onAccepted: accepted })
+    h.setActive(null)
+    complete(true)
+    expect(accepted).not.toHaveBeenCalled()
   })
 
   it('matches the post-flush snapshot and explicitly selects this plugin over another view', async () => {

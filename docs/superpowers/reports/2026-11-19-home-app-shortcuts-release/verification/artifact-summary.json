@@ -1,0 +1,38 @@
+{
+  "sourceCommit": "c391032e80d294c8e941b041e0987e8b9555923f",
+  "appBinary": {
+    "path": "/Users/bruce/git/mdeditor/tasks/vault-release-20261114/source/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/note.md.app/Contents/MacOS/notemd",
+    "bytes": 23473440,
+    "sha256": "cbcb88cbca2d82bbd85cd8039b07163d515857d83b1b21ec60491bbf02d0f98d"
+  },
+  "dmg": {
+    "path": "/Users/bruce/git/mdeditor/tasks/home-release-20261119/host/note.md-6.1119.1-aarch64.dmg",
+    "bytes": 15891188,
+    "sha256": "63fc8b30113f0537c8cbd601d1c458b9e985a587aa9824de7d8d9cff22422fa0",
+    "mach_o_sha256": "cbcb88cbca2d82bbd85cd8039b07163d515857d83b1b21ec60491bbf02d0f98d",
+    "mach_o_bytes": 23473440,
+    "app_version": "6.1119.1",
+    "app_identifier": "net.notemd.app",
+    "candidate_and_updater_byte_identical": true,
+    "mount_readonly": true,
+    "detached_device": "/dev/disk8s1"
+  },
+  "updaterEntireAppFilesIdentical": 7,
+  "dmgEntireAppFilesIdentical": 7,
+  "acceptedSourceFiles": 40,
+  "sourceFiles": 45,
+  "embeddedResources": 207,
+  "compiledRoles": 8,
+  "compiledSlots": [
+    {
+      "asset": "App-DPyUKoh-.js",
+      "constant": "Cb",
+      "default": "pins:Array(Cb).fill(null)",
+      "value": 8
+    }
+  ],
+  "commands": 17,
+  "appCDHash": "f4b5ad8d1e713afa1dffd9144bd7e1a3b1dc138b",
+  "dmgCDHash": "38a66d82f504bd0dcb6ef3c3bef2e69d04437541",
+  "companionSha": "f75d72fa51efa50d09412b956453a0f36f59ced8a47f501bab148867f10c4299"
+}
