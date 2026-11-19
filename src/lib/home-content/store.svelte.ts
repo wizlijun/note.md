@@ -7,7 +7,7 @@ import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type Fs } from '../insights/store.svelte'
 import { abbreviateHome, normalize } from '../paths'
 import { formatRecentLabel } from '../recent-merge'
-import { activityFor, applyAttention, applyEdit, contentKey, contentLists, countNewDismiss, discoverContent, dismissContent,
+import { activityFor, applyAttention, applyEdit, contentKey, contentLists, countNewDismiss, discoverContent, dismissContent, normalizeDirRule,
   emptyVaultContent, emptyHomeContent, migrateOwnerHistory, noDirRules, normalizeHomeContent, passesDirRules, READ_MS,
   type ContentCandidate, type ContentList, type HomeContentData, type HomeContentItem, type HomeDirRules, type VaultContent } from './model'
 import { homeDirRulesFrom, saveHomeNewDirs, type VaultSettingsDto } from '../vault-settings.svelte'
@@ -25,6 +25,9 @@ let writes: Promise<void> = Promise.resolve()
 let root: string | null = null
 let rules = { extensions: ['md'], names: [] as string[] }
 let dirRules: HomeDirRules = noDirRules
+/** Bumped whenever rules are set directly, so a scan that read settings
+ *  before the change does not put the old rules back when it lands. */
+let rulesRevision = 0
 let catalog: ContentCandidate[] = []
 let catalogReady = false
 let unavailable = new Set<string>()
@@ -103,7 +106,7 @@ const analyticsFs: Fs = {
 
 export function refreshHomeContent(): Promise<void> {
   if (scan) return scan
-  const target = root, epoch = generation
+  const target = root, epoch = generation, revision = rulesRevision
   if (!target) { homeContentStore.ready = true; return Promise.resolve() }
   homeContentStore.busy = true
   const current = (async () => {
@@ -126,7 +129,7 @@ export function refreshHomeContent(): Promise<void> {
       migrateOwnerHistory(vault, history, target)
     })
     if (generation !== epoch || target !== root) return
-    if (settings && typeof settings === 'object') dirRules = homeDirRulesFrom(settings)
+    if (settings && typeof settings === 'object' && revision === rulesRevision) dirRules = homeDirRulesFrom(settings)
     catalog = result.skipped > 0 ? [...new Map([...catalog, ...result.items].map(c => [c.path, c])).values()] : result.items
     unavailable = missingExternal
     catalogReady = true
@@ -166,6 +169,7 @@ export async function dismissHomeContent(list: ContentList, path: string): Promi
 /** Rules saved from the settings dialog; applied without waiting for a rescan. */
 export function applyHomeDirRules(next: HomeDirRules): void {
   dirRules = next
+  rulesRevision++
   publish()
 }
 
@@ -177,10 +181,16 @@ export async function excludeAskedDir(): Promise<void> {
   try {
     // Re-read so a hand edit made since the last refresh is not overwritten.
     const current = homeDirRulesFrom(await invoke<VaultSettingsDto>('notemd_vault_settings_get'))
-    const exclude = current.exclude.includes(asked.dir) ? current.exclude : [...current.exclude, asked.dir]
+    // Save the list as the home filter reads it: a hand-written `/stat/` or
+    // `./stat` would otherwise be rejected by the backend and block every answer.
+    const exclude: string[] = []
+    for (const dir of [...current.exclude, asked.dir].map(normalizeDirRule)) {
+      if (dir && !exclude.some(kept => kept.toLowerCase() === dir.toLowerCase())) exclude.push(dir)
+    }
     const next = await saveHomeNewDirs({ exclude })
     if (generation !== epoch || target !== root) return
     dirRules = next
+    rulesRevision++
     await change(target, vault => {
       if (vault.askDir === asked.dir) vault.askDir = null
       delete vault.dismissCounts[asked.dir]

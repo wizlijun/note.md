@@ -328,6 +328,30 @@ describe('home directory rules and the exclude prompt', () => {
     expect(paths(s.homeContentStore.newItems)).toEqual([candidate('project/r.md').path])
   })
 
+  it('does not let a scan that started before a rule change restore the old rules', async () => {
+    candidates.set(ROOT, [candidate('stat/a.md'), candidate('project/r.md')])
+    const s = await load()
+    let release!: () => void
+    const gate = new Promise<void>(r => { release = r })
+    const original = mocks.catalog.getMockImplementation()!
+    mocks.catalog.mockImplementationOnce(async (args: unknown) => { await gate; return original(args) })
+    const pending = s.refreshHomeContent()
+    await vi.waitFor(() => expect(mocks.catalog).toHaveBeenCalledTimes(2))
+    s.applyHomeDirRules({ exclude: ['stat', 'project'], include: [] })
+    release(); await pending
+    expect(paths(s.homeContentStore.newItems)).toEqual([])
+  })
+
+  it('normalizes and de-duplicates hand-written exclusions before saving the asked directory', async () => {
+    settings = { homeNewExcludeDirs: ['/stat/', './agent-sessions/'] }
+    candidates.set(ROOT, [...sessions(6), candidate('project/r.md')])
+    const s = await load()
+    s.applyHomeDirRules({ exclude: ['stat'], include: [] })
+    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
+    await s.excludeAskedDir()
+    expect(mocks.invoke).toHaveBeenCalledWith('notemd_vault_settings_set', { homeNewExcludeDirs: ['stat', 'agent-sessions'] })
+  })
+
   it('keeps the prompt and the count when saving the exclusion fails', async () => {
     candidates.set(ROOT, sessions(6))
     const s = await load()
