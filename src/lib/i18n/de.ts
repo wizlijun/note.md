@@ -1,6 +1,8 @@
 import type { Messages } from './en'
 
 export const de: Record<keyof Messages, string> = {
+  "homeApps.pdfGuide": "Öffnen Sie zuerst ein Markdown- oder HTML-Dokument und wählen Sie dann im bestehenden Menü „Plugins → Importieren & Exportieren → Als PDF exportieren…“.",
+
   "homeApps.noShortcuts": "Öffnen Sie „Alle Apps“, um eine App zu starten oder eine Verknüpfung anzuheften.",
   "homeApps.storageError": "Verknüpfungseinstellungen konnten nicht gelesen oder gespeichert werden: {error}",
 

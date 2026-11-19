@@ -165,7 +165,7 @@
       {#if homeAppsStore.data.pins.includes(app.id)}<button class="menu-row" role="menuitem" onclick={() => { menu = null; void run(() => unpinHomeApp(app.id)) }}>{t('homeApps.unpin')}</button>{/if}
     </div>
   {/if}
-  {#if directory}<AppDirectory {apps} pins={homeAppsStore.data.pins} {selected} {chooseTarget} moving={moveSource !== undefined} busy={homeAppsStore.busy} {error} {reason} onclose={() => { void closeDirectory() }} ondetail={details} onopen={app => { void open(app) }} onplace={place} onunpin={app => run(() => unpinHomeApp(app.id))} onmanage={manage} onmarket={market} onretry={catalogError || !homeAppsStore.ready ? reload : undefined} onconfigure={configure} commandEnabled={(app, command) => !reason(app, command)} oncommand={(app, command) => { void openCommand(app, command) }}/>{/if}
+  {#if directory}<AppDirectory {apps} loading={loading || awaitingDispatcher} catalogReady={complete} pins={homeAppsStore.data.pins} {selected} {chooseTarget} moving={moveSource !== undefined} busy={homeAppsStore.busy} {error} {reason} onclose={() => { void closeDirectory() }} ondetail={details} onopen={app => { void open(app) }} onplace={place} onunpin={app => run(() => unpinHomeApp(app.id))} onmanage={manage} onmarket={market} onretry={catalogError || !homeAppsStore.ready ? reload : undefined} onconfigure={configure} commandEnabled={(app, command) => !reason(app, command)} oncommand={(app, command) => { void openCommand(app, command) }}/>{/if}
 </section>
 <style>
   .home-apps { border-top:1px solid color-mix(in srgb,CanvasText 12%,transparent); padding-top:24px; margin-top:32px; color:CanvasText; }

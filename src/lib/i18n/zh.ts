@@ -3,6 +3,8 @@ import type { Messages } from './en'
 // Simplified Chinese catalog. Typed as a full record so a missing key is a
 // compile error — keep it complete and in sync with `en.ts`.
 export const zh: Record<keyof Messages, string> = {
+  "homeApps.pdfGuide": "请先打开 Markdown 或 HTML 文档，再从现有菜单选择“插件 → 数据导入导出 → 导出为 PDF…”。",
+
   "homeApps.noShortcuts": "从“全部应用”打开应用，或固定常用快捷方式。",
   "homeApps.storageError": "无法读取或保存快捷方式偏好：{error}",
 

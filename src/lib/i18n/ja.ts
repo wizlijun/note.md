@@ -3,6 +3,8 @@ import type { Messages } from './en'
 // Japanese catalog. Typed as a full record so a missing key is a compile
 // error — keep it complete and in sync with `en.ts`.
 export const ja: Record<keyof Messages, string> = {
+  "homeApps.pdfGuide": "まず Markdown または HTML の文書を開き、既存のメニューから「プラグイン → 読み込みと書き出し → PDF に書き出す…」を選んでください。",
+
   "homeApps.noShortcuts": "「すべてのアプリ」から開くか、ショートカットを固定してください。",
   "homeApps.storageError": "ショートカット設定を読み込みまたは保存できませんでした：{error}",
 

@@ -8,6 +8,8 @@
 // To add another language, create a sibling catalog (e.g. `zh.ts`) typed as
 // `Partial<Messages>` and register it in `store.svelte.ts`.
 export const en = {
+  "homeApps.pdfGuide": "Open a Markdown or HTML document first, then choose Plugins → Import & Export → Export to PDF… from the existing menu.",
+
   "homeApps.noShortcuts": "Open All apps to launch an app or pin a shortcut.",
   "homeApps.storageError": "Shortcut preferences could not be read or saved: {error}",
 

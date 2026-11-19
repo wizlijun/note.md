@@ -13,6 +13,7 @@ vi.mock('../lib/i18n/store.svelte', () => ({ i18n: { locale: 'en' }, t: (key: st
 import HomeApps from './HomeApps.svelte'
 import { homeAppsStore } from '../lib/home-apps/store.svelte'
 import { emptyHomeAppsData } from '../lib/home-apps/model'
+import { en } from '../lib/i18n/en'
 let app: ReturnType<typeof mount> | undefined
 const installed = [
   { id: 'a', name: 'Alpha', category: 'ai', enabled: true, capabilities: [], version: '1' },
@@ -22,7 +23,7 @@ const manifests = [{ id: 'a', name: 'Alpha', open_windows: { open: 'main' } }, {
 async function settle() { await new Promise(r => setTimeout(r, 0)); flushSync() }
 function button(text: string) { return [...document.querySelectorAll('button')].find(b => b.textContent?.trim() === text)! }
 beforeEach(() => {
-  vi.clearAllMocks(); mocks.runtime.ready = true; document.body.innerHTML = ''; mocks.data = emptyHomeAppsData()
+  vi.clearAllMocks(); mocks.runtime.ready = true; document.body.removeAttribute('tabindex'); document.body.innerHTML = ''; mocks.data = emptyHomeAppsData()
   Object.assign(homeAppsStore, { data: emptyHomeAppsData(), ready: false, busy: false, error: null })
   mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? installed : manifests)
   mockIPC((cmd, args) => mocks.invoke(cmd, args))
@@ -243,4 +244,68 @@ it('keeps focus in the dialog after placing or unpinning so Escape still closes 
   document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await settle()
   expect(document.querySelector('[role="dialog"]')).toBeNull()
   expect(document.activeElement).toBe(opener)
+})
+it('focuses direct tile/context details and direct move targets instead of the directory search', async () => {
+  mocks.data.pins[0] = 'b'
+  app = mount(HomeApps, { target: document.body }); await settle()
+  const tile = document.querySelector<HTMLButtonElement>('[data-home-slot="0"] button')!
+  tile.focus(); tile.click(); await settle()
+  expect(document.activeElement).toBe(document.querySelector('.app-detail h3'))
+  button('homeApps.close').click(); await settle()
+  tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })); await settle()
+  document.querySelector<HTMLButtonElement>('.home-context-menu button')!.click(); await settle()
+  expect(document.activeElement).toBe(document.querySelector('.app-detail h3'))
+  button('homeApps.close').click(); await settle()
+  button('homeApps.edit').click(); await settle()
+  document.querySelector<HTMLButtonElement>('[data-home-slot="0"] [data-move]')!.click(); await settle()
+  expect(document.activeElement?.matches('[data-target-slot]:not(:disabled)')).toBe(true)
+})
+it('keeps loading and catalog failure distinct from a successfully empty installed directory', async () => {
+  let reject!: (error: unknown) => void
+  mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? new Promise((_resolve, fail) => { reject = fail }) : manifests)
+  app = mount(HomeApps, { target: document.body }); await settle()
+  button('homeApps.allApps').click(); await settle()
+  const dialog = document.querySelector('[role="dialog"]')!
+  expect(dialog.textContent).toContain('homeApps.loading')
+  expect(dialog.textContent).not.toContain('homeApps.empty')
+  reject(new Error('catalog offline')); await settle()
+  expect(dialog.textContent).toContain('catalog offline')
+  expect(dialog.textContent).not.toContain('homeApps.empty')
+  mocks.invoke.mockImplementation(async () => [])
+  button('homeApps.retry').click(); await settle()
+  expect(dialog.textContent).toContain('homeApps.empty')
+})
+it('shows a read-only usage path for the official PDF exporter without running export', async () => {
+  const item = { ...installed[0], id: 'notemd.md2pdf', name: 'Export to PDF' }
+  mocks.invoke.mockImplementation(async cmd => cmd === 'plugin_market_installed' ? [item] : [{ ...manifests[0], id: item.id, name: item.name, open_windows: {}, menus: [{ location: 'file', submenu: 'import-export', command: 'export', label: 'Export to PDF…' }] }])
+  app = mount(HomeApps, { target: document.body }); await settle()
+  button('homeApps.allApps').click(); await settle()
+  document.querySelector<HTMLButtonElement>('[data-app-id="notemd.md2pdf"]')!.click(); await settle()
+  expect(document.querySelector('.app-detail')?.textContent).toContain('homeApps.pdfGuide')
+  expect(en['homeApps.pdfGuide']).toContain('Plugins → Import & Export → Export to PDF')
+  expect(mocks.dispatch).not.toHaveBeenCalled()
+  expect(document.querySelector('[data-app-command="export"]')).toBeNull()
+})
+it('restores dialog focus after a delayed failed position save or unpin', async () => {
+  document.body.tabIndex = -1
+  mocks.data.pins[0] = 'a'
+  app = mount(HomeApps, { target: document.body }); await settle()
+  button('homeApps.allApps').focus(); button('homeApps.allApps').click(); await settle()
+  document.querySelector<HTMLButtonElement>('[data-app-id="a"]')!.click(); await settle()
+  button('homeApps.move').click(); await settle()
+  let reject!: (error: unknown) => void
+  mocks.save.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
+  const target = document.querySelector<HTMLButtonElement>('[data-target-slot="2"]')!; target.focus(); target.click(); await settle()
+  expect(target.disabled).toBe(true)
+  document.body.focus(); reject(new Error('delayed disk failure')); await settle()
+  expect(document.activeElement).toBe(document.querySelector('.app-detail h3'))
+  expect(document.querySelector('[role="alert"]')?.textContent).toContain('delayed disk failure')
+  expect(homeAppsStore.data.pins[0]).toBe('a')
+  mocks.save.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
+  const unpin = button('homeApps.unpin'); unpin.focus(); unpin.click(); await settle()
+  expect(unpin.disabled).toBe(true)
+  document.body.focus(); reject(new Error('delayed unpin failure')); await settle()
+  expect(document.activeElement).toBe(document.querySelector('.app-detail h3'))
+  document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await settle()
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
 })

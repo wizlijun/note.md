@@ -5,8 +5,8 @@
   import { PLUGIN_CATEGORY_ORDER, pluginCategoryLabelKey, type PluginCategory } from '../lib/plugins/categories'
   import { pluginMenuLabel } from '../lib/plugins/plugin-i18n'
   import { t } from '../lib/i18n/store.svelte'
-  let { apps, pins, selected = null, chooseTarget = false, moving = false, busy = false, error = null, reason, onclose, ondetail, onopen, onplace, onunpin, onmanage, onmarket, onconfigure, commandEnabled, oncommand, onretry }: {
-    apps: HomeApp[]; pins: (string | null)[]; selected?: HomeApp | null; chooseTarget?: boolean; moving?: boolean; busy?: boolean; error?: string | null
+  let { apps, pins, selected = null, chooseTarget = false, moving = false, busy = false, loading = false, catalogReady = false, error = null, reason, onclose, ondetail, onopen, onplace, onunpin, onmanage, onmarket, onconfigure, commandEnabled, oncommand, onretry }: {
+    apps: HomeApp[]; pins: (string | null)[]; selected?: HomeApp | null; chooseTarget?: boolean; moving?: boolean; busy?: boolean; loading?: boolean; catalogReady?: boolean; error?: string | null
     reason: (app: HomeApp) => string | null; onclose: () => void; ondetail: (app: HomeApp) => void; onopen: (app: HomeApp) => void
     onplace: (app: HomeApp, slot: number) => Promise<boolean>; onunpin: (app: HomeApp) => Promise<boolean>; onmanage: () => void; onmarket: () => void; onconfigure: (app: HomeApp) => void; commandEnabled: (app: HomeApp, command: string) => boolean; oncommand: (app: HomeApp, command: string) => void; onretry?: () => void
   } = $props()
@@ -24,7 +24,12 @@
     for (const view of manifest.file_views ?? []) if (view.open_command?.trim() && !declared.has(view.open_command)) declared.set(view.open_command, view.id)
     return [...declared].map(([command, fallback]) => ({ command, label: pluginMenuLabel(manifest, command, manifest.menus?.find(menu => menu.command === command)?.label ?? fallback) }))
   })
-  onMount(() => { choosing = chooseTarget; void tick().then(() => panel.querySelector<HTMLInputElement>('input')?.focus()) })
+  onMount(() => {
+    choosing = chooseTarget
+    if (selected) { if (chooseTarget) void focusPosition(); else void focusDetail() }
+    else void tick().then(() => panel.querySelector<HTMLInputElement>('input')?.focus())
+  })
+  async function focusPosition() { await tick(); (panel.querySelector<HTMLElement>('[data-target-slot]:not(:disabled)') ?? panel.querySelector<HTMLElement>('h3'))?.focus() }
   async function focusDetail() { await tick(); panel.querySelector<HTMLElement>('h3')?.focus() }
   function keys(event: KeyboardEvent) {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onclose() }
@@ -43,7 +48,7 @@
       <button class="home-control" aria-pressed={category === null} onclick={() => { category = null }}>{t('homeApps.all')}</button>
       {#each PLUGIN_CATEGORY_ORDER as key}<button class="home-control" aria-pressed={category === key} onclick={() => { category = key }}>{t(pluginCategoryLabelKey(key))}</button>{/each}
     </div>
-    {#if !apps.length}<p class="home-status">{t('homeApps.empty')}</p>{:else if !filtered.length}<p class="home-status">{t('homeApps.noResults')}</p>{/if}
+    {#if loading}<p class="home-status" role="status">{t('homeApps.loading')}</p>{:else if catalogReady && !apps.length}<p class="home-status">{t('homeApps.empty')}</p>{:else if apps.length && !filtered.length}<p class="home-status">{t('homeApps.noResults')}</p>{/if}
     <div class="directory-list">
       {#each filtered as app (app.id)}
         <button class="directory-row" data-app-id={app.id} aria-pressed={selected?.id === app.id} onclick={() => { choosing = false; saved = false; ondetail(app); void tick().then(() => panel.querySelector<HTMLElement>('h3')?.focus()) }}>
@@ -55,11 +60,12 @@
     {#if selected}
       <section class="app-detail" aria-label={t('homeApps.details')}>
         <h3 tabindex="-1">{selected.name}</h3><p>{selected.description}</p>
+        {#if selected.id === 'notemd.md2pdf'}<p class="usage-guide">{t('homeApps.pdfGuide')}</p>{/if}
         {#if reason(selected)}<p class="home-status">{reason(selected)}</p>{/if}
         <div class="detail-controls">
           {#if selected.entry.kind === 'command'}<button class="home-control" disabled={Boolean(reason(selected)) || busy} onclick={() => onopen(selected!)}>{t('homeApps.open')}</button>{/if}
-          <button class="home-control" disabled={busy} onclick={() => { choosing = !choosing; saved = false }}>{t(pinned ? 'homeApps.move' : 'homeApps.pin')}</button>
-          {#if pinned}<button class="home-control" disabled={busy} onclick={async () => { saved = await onunpin(selected!); choosing = false; if (saved) await focusDetail() }}>{t('homeApps.unpin')}</button>{/if}
+          <button class="home-control" disabled={busy} onclick={() => { choosing = !choosing; saved = false; if (choosing) void focusPosition() }}>{t(pinned ? 'homeApps.move' : 'homeApps.pin')}</button>
+          {#if pinned}<button class="home-control" disabled={busy} onclick={async () => { saved = await onunpin(selected!); choosing = false; await focusDetail() }}>{t('homeApps.unpin')}</button>{/if}
           {#if selected.manifest?.settings}<button class="home-control" onclick={() => onconfigure(selected!)}>{t('homeApps.configure')}</button>{/if}
           <button class="home-control" onclick={onmanage}>{t('homeApps.manage')}</button>
         </div>
@@ -68,7 +74,7 @@
           <p class="home-status">{t(pinned || moving ? 'homeApps.moveHint' : 'homeApps.choosePosition')}</p>
           {#if !pinned && !moving && pins.every(Boolean)}<p class="home-status">{t('homeApps.full')}</p>{/if}
           <div class="position-grid">
-            {#each pins as id, slot}<button class="home-control" data-target-slot={slot} disabled={busy || (!pinned && !moving && id !== null)} aria-label={t('homeApps.position', { n: slot + 1 })} title={id ? apps.find(app => app.id === id)?.name ?? id : t('homeApps.vacant')} onclick={async () => { saved = await onplace(selected!, slot); if (saved) { choosing = false; await focusDetail() } }}>{slot + 1}{#if id}<span> · {apps.find(app => app.id === id)?.compactName ?? id}</span>{/if}</button>{/each}
+            {#each pins as id, slot}<button class="home-control" data-target-slot={slot} disabled={busy || (!pinned && !moving && id !== null)} aria-label={t('homeApps.position', { n: slot + 1 })} title={id ? apps.find(app => app.id === id)?.name ?? id : t('homeApps.vacant')} onclick={async () => { saved = await onplace(selected!, slot); if (saved) choosing = false; await focusDetail() }}>{slot + 1}{#if id}<span> · {apps.find(app => app.id === id)?.compactName ?? id}</span>{/if}</button>{/each}
           </div>
         {/if}
         {#if saved}<p class="home-status" role="status">{t('homeApps.saved')}</p>{/if}
