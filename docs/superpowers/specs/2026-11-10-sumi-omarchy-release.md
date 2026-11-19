@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi Omarchy 正式发布计划
 
 用户于2026-11-10明确要求完成后发布宿主与插件。基础实现提交576a0edb，构建依赖补充150db985；后续候选整合与发布以最终冻结tag为准，不把开发包当正式包。

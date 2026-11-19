@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi 打字机输入法体验规范（跨平台）
 
 - 文档版本：1.0

@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # 八组插件分类统一
 
 用户确认：AI → 捕捉 Capture → 阅读 Read → 写作 Write → 推进 Advance → 回顾 Review → 数据导入导出 Import & Export → 其他 Other。AI 为通用能力入口，末两组为工具区，不宣称整个序列为严格认知负荷量表。

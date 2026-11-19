@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Omarchy 插件快捷键统一
 
 用户报告插件快捷键混乱。先以本机已安装Omarchy默认/用户绑定与hyprctl实际绑定为准，审计后实施；不能通过覆盖桌面Super绑定修复应用快捷键。

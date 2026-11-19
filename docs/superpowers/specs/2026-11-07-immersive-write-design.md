@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi：全平台沉浸式写作与同步设计
 
 日期：2026-11-07；实施核对：2026-11-10。状态：macOS Apple Silicon宿主6.1110.1与Sumi0.1.10已公开，版本范围见§12；交付以各轮冻结源码、安装包与验收证据为准。本文是最终需求与设计基线，不以需求条目代替实现、实机验收或冻结发布证据；后续平台尚未交付。

@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi macOS / Linux 体验对齐
 
 > 2026-11-12 名称纠正：此前文中的 Faitc5 为误拼；当前输入法正式名统一为 Fcitx5 for Sumi，覆盖旧名称保留指令。历史发行证据原样保留。

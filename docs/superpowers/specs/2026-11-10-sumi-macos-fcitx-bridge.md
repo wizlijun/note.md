@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi macOS Fcitx5 候选桥实现规格
 
 本实现遵守 `sumi-ime-cross-platform.md`；输入法为固定上游 `fcitx/fcitx5-macos@6322853b17aca03ce1f1b694208cc5201944ca69`。用户已选择该路线并授权源码改造。正式安装与发布不属于本轮。

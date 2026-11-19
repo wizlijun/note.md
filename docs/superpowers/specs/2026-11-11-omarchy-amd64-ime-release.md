@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Omarchy amd64 宿主与特殊输入法联合发布
 
 > 2026-11-12 名称更正：历史范围中的 Faitc5 为误拼；当前规范名为 Fcitx5 for Sumi。已公开旧包的实际文件名、tag 与哈希仍按原始证据保留。

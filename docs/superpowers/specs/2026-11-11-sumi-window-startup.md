@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi macOS 窗口启动
 
 用户要求新建窗口根据实际显示器协调布局，允许绿色按钮进入全屏，并提供默认开启的启动全屏选项。

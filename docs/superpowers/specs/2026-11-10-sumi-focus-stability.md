@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi 聚焦稳定性与无滚动条正文
 
 用户在 6.1110.4 报告聚焦时整屏抖动，以及滚动条边框破坏全屏黑色背景。

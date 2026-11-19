@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Power Mode 素材与 Sumi 后台迁移
 
 状态：2026-11-08 用户已确认实施；取代旧候选仅拆字体后立即发布的计划。本文件补充 `2026-11-07-immersive-write-design.md`，不降低原生输入、逐行时间、离线合并、恢复及安全存储要求。先实现、验证，再按既有通道发布宿主及两个插件。旧 v6.1108.3/v6.1108.4 草稿与 Sumi 0.1.2/0.1.3 R2 对象不可改写或误上架。

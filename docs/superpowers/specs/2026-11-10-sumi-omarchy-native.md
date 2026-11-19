@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi Omarchy 实施与验收规格
 
 基线：`2026-11-07-immersive-write-design.md` 及当前 macOS 实现，包括其末尾的聚焦、导航恢复与本机持久日志要求。本文件记录 Linux 适配方案，不表示已发布或验收通过。

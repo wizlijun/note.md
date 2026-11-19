@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # Sumi 内嵌 Fcitx 候选区
 
 > 更新：非聚焦正文底部锚定要求已由用户撤销。当前定位要求见 [非聚焦输入行保持原位](2026-11-10-sumi-stationary-nonfocus-input.md)；本文件的旧底部正文描述仅保留为历史设计记录。

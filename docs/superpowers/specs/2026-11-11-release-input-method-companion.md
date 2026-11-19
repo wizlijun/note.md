@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # macOS 发布附带 Fcitx5 安装包
 
 用户要求所有 macOS 发布附带最后批准的改造输入法。本轮更正包为 Fcitx5 for Sumi 0.5.0.15，保留独立版本，不将输入法加入 note.md 自动更新载荷。

@@ -1,3 +1,5 @@
+> 现行规范已迁至 sumiwrite:https://github.com/wizlijun/sumiwrite/tree/main/docs/spec。本文仅作历史记录。
+
 # 输入法名称纠正
 
 用户于2026-11-12明确要求纠正误拼Faitc5，当前产品标准名称统一为 **Fcitx5 for Sumi**，源于官方Fcitx5项目；覆盖此前沿用错名的指令。
