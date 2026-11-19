@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1120.1 — 2026-11-20
+
 - The File menu now keeps Recently Opened and New Content, removing Open History. Each home document list starts with 10 items and adds 10 per More click instead of rendering the entire list at once.
 
 ## v6.1119.2 — 2026-11-19
