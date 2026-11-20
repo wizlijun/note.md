@@ -6,6 +6,8 @@
 
 ## 未发布
 
+## v6.1120.4 — 2026-11-20
+
 - **沟通转写勘误 0.1.14 为 agent 维护精简的 `vocabulary.md`。** 它位于词典旁(默认 `ssot/meetings/vocabulary.md`),每次确认修改后自动重新生成。它只列出已启用的勘误，按场景和类型分组，供 agent 作为上下文加载，体积只有 YAML 的一小部分。`notemd conversation-dictionary context` 可刷新该文件并输出路径;加 `--domain ID` 只输出单个场景。
 - **沟通转写勘误 0.1.17 的「打开勘误表」改为打开 `vocabulary.md`。** 按钮打开的是给 agent 看的只读勘误清单(打开前先刷新),不再是原始 YAML 词典;YAML 仍可在「设置」里打开。
 - **沟通转写勘误 0.1.16 让 `vocabulary.md` 读起来就是一张普通的查找替换表。** 每条从左往右读作「听到的 → 应写作」(例如 `邓志辉 → Frank`),`(always)` 标出一律改正的条目，场景标题不再带内部 ID。
