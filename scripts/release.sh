@@ -147,6 +147,9 @@ and put the matching public key into src-tauri/tauri.conf.json (plugins.updater.
   fi
   export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY_PATH")"
 fi
+# `tauri signer sign` rejects the key and the key path together, and .env.release
+# exports the path; the key content is already resolved, so drop the path.
+unset TAURI_SIGNING_PRIVATE_KEY_PATH
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
 
 cd "$ROOT"
