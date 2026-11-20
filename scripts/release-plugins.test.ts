@@ -114,28 +114,53 @@ describe('release-plugins.sh packaging shape', () => {
     expect(packagingBody('release_codex_agent')).toContain('cargo build --release --locked')
   })
 
-  it('Sumi release and development installation both carry the native backend', () => {
+  it('Sumi release and development installation both build the native backend from sumiwrite', () => {
     expect(table.get('sumi')).toBe('release_sumi')
     const body = functionBody('release_sumi')
+    expect(body).toContain('bash "$app/scripts/build-artifact.sh" --target "$triple"')
+    expect(body).toContain('"notemd-plugin-v$version"')
     expect(body).toContain('scripts/sumi/native-release.py --sign-and-notarize')
     expect(body).toContain('"$native_dir/notemd-sumi" "$stage/bin/notemd-sumi"')
     const dev = DEV_INSTALL.split('elif [[ "$PLUGIN" == "sumi" ]]; then')[1]?.split('\nelif ')[0]
-    expect(dev).toContain('--locked --manifest-path "$SRC/backend/Cargo.toml" --bin notemd-sumi')
-    expect(dev).toContain('"$SRC/backend/target/$PROFILE/notemd-sumi" "$DEST/bin/"')
+    expect(dev).toContain('bash "$SUMI_APP/scripts/build-artifact.sh" --target "$SUMI_TRIPLE"')
+    expect(dev).toContain('verify-stage.py" --verify-checklist')
     expect(dev).not.toContain('(ui-only)')
   })
 
   it('Sumi Linux reaches the native build without Apple credentials', () => {
-    const result = spawnSync('bash', ['-c', `set -e
+    // A throwaway sumiwrite checkout, clean and exactly on the release tag, whose
+    // build-artifact.sh leaves a marker and fails: the marker proves the build was
+    // reached without any Apple gate stopping it first.
+    const sumiwrite = mkdtempSync(join(tmpdir(), 'sumiwrite-'))
+    const marker = `${sumiwrite}.reached`
+    try {
+      const app = join(sumiwrite, 'apps/notemd-plugin')
+      mkdirSync(join(app, 'scripts'), { recursive: true })
+      writeFileSync(join(app, 'manifest.v2.json'), '{"version":"0.1.10"}\n')
+      writeFileSync(join(app, 'scripts/build-artifact.sh'), `printf '%s' "$*" > '${marker}'\nexit 91\n`)
+      const git = (...args: string[]) => {
+        const r = spawnSync('git', ['-C', sumiwrite, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { encoding: 'utf8' })
+        expect(r.status, r.stderr).toBe(0)
+      }
+      git('init', '-q')
+      git('add', '-A')
+      git('commit', '-qm', 'fixture')
+      git('tag', 'notemd-plugin-v0.1.10')
+      const result = spawnSync('bash', ['-c', `set -e
 REPO_ROOT="$1"
 manifest_field() { echo 0.1.10; }
-cargo() { exit 91; }
 ${functionBody('release_sumi')}
 release_sumi`, 'test', ROOT], {
-      encoding: 'utf8',
-      env: { ...process.env, SUMI_RELEASE_TARGET: 'x86_64-unknown-linux-gnu', APPLE_SIGNING_IDENTITY: '', APPLE_TEAM_ID: '' },
-    })
-    expect(result.status, result.stderr).toBe(91)
+        encoding: 'utf8',
+        env: { ...process.env, SUMIWRITE_DIR: sumiwrite, SUMI_RELEASE_TARGET: 'x86_64-unknown-linux-gnu', APPLE_SIGNING_IDENTITY: '', APPLE_TEAM_ID: '' },
+      })
+      expect(result.status, result.stderr).toBe(1)
+      expect(existsSync(marker), result.stderr).toBe(true)
+      expect(readFileSync(marker, 'utf8')).toContain('--target x86_64-unknown-linux-gnu')
+    } finally {
+      rmSync(sumiwrite, { recursive: true, force: true })
+      rmSync(marker, { force: true })
+    }
   })
 
   it('development installation resolves Linux XDG paths including spaces', () => {
