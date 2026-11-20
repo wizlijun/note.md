@@ -8,6 +8,7 @@ For the full commit history, see the git log.
 ## Unreleased
 
 - **Conversation Transcript Corrections 0.1.14 keeps a compact `vocabulary.md` for agents.** It sits next to the corrections dictionary (default `ssot/meetings/vocabulary.md`), regenerated after every confirmed change. It lists only enabled corrections, grouped by context and kind, so agents can load it as context at a fraction of the YAML size. `notemd conversation-dictionary context` refreshes it and prints its path; add `--domain ID` for one context only.
+- **Conversation Transcript Corrections 0.1.17 opens `vocabulary.md` from Open Corrections.** The button now shows the read-only, agent-facing list (refreshed first) instead of the raw YAML dictionary; the YAML is still available under Settings.
 - **Conversation Transcript Corrections 0.1.16 makes `vocabulary.md` read like a plain find-and-replace list.** Each correction reads left to right as `heard → correct` (for example `邓志辉 → Frank`), `(always)` marks fixes to apply every time, and context headings no longer carry internal IDs.
 - **Conversation Transcript Corrections 0.1.15 writes `vocabulary.md` as plain Markdown.** The file no longer carries front matter or metadata (type, generation time, source, revision); it is a one-way projection of the dictionary and is fully rewritten whenever its content changes, so hand edits do not survive.
 - Fixed pressing Enter at the end of a line in the Rich editor doing nothing — most noticeable right after typing the first line of a new note.

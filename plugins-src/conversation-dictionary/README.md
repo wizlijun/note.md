@@ -30,6 +30,7 @@ Intel，不提供 Windows 版本。
 
 规则只在所属场景内生效(与 `resolve` 一致,`public` 也不会套用到其它场景)。写入是单向的:
 插件只从词典生成该文件、从不读回，内容不同就整份覆盖，手工修改会被下次生成覆盖。
+插件窗口顶部的「打开勘误表」打开的就是这个文件(打开前先按词典刷新一次);YAML 词典本身在「设置」里打开。
 
 插件窗口中的「安装 Agent Skill」会在 Vault 内安装
 `.agents/skills/build-conversation-dictionary/`，并在 `AGENTS.md` 中加入有边界的

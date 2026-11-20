@@ -338,6 +338,8 @@ impl sdk::NotemdPlugin for ConversationDictionaryPlugin {
             "candidate_dismiss" => {
                 Err("candidate decisions are not part of the first implementation slice".into())
             }
+            // Refreshes the read-only projection first, so the file exists and is current.
+            "open_agent_context" => service.agent_context(None),
             "open_dictionary" => Ok(json!({
                 "path": notemd_conversation_dictionary::storage::dictionary_path(service.vault())?
                     .strip_prefix(service.vault()).unwrap_or(Path::new(""))

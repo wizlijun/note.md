@@ -654,6 +654,12 @@
     catch (value) { error = value instanceof Error ? value.message : String(value) }
   }
 
+  /** The read-only vocabulary.md projection; the YAML stays behind Settings. */
+  async function openVocabulary() {
+    try { const { path } = await api.agentContextPath(); await api.openInEditor(path) }
+    catch (value) { error = value instanceof Error ? value.message : String(value) }
+  }
+
   async function openSource(path: string) {
     try { await api.openInEditor(path) }
     catch (value) { error = value instanceof Error ? value.message : String(value) }
@@ -720,7 +726,7 @@
       <h1>{t('沟通转写勘误', 'Conversation Transcript Corrections')}</h1>
       <p>{t('整理你参与的沟通转写，经确认后按场景复用人名与术语。', 'Review transcription terms from conversations you participate in, then reuse them by context.')}</p>
     </div>
-    {#if snapshot?.dictionary && !initializationError}<button class="secondary" onclick={openDictionary}>{t('打开勘误表', 'Open Corrections')}</button>{/if}
+    {#if snapshot?.dictionary && !initializationError}<button class="secondary" onclick={openVocabulary}>{t('打开勘误表', 'Open Corrections')}</button>{/if}
   </header>
 
   {#if !initializationError}

@@ -31,6 +31,7 @@ export const api = {
   mergeCorrectionEntries: (params: unknown): Promise<unknown> => bridge().request('plugin.merge_correction_entries', params),
   deleteCorrectionEntry: (params: unknown): Promise<unknown> => bridge().request('plugin.delete_correction_entry', params),
   dictionaryPath: (): Promise<{ path: string }> => bridge().request('plugin.open_dictionary', {}),
+  agentContextPath: (): Promise<{ path: string }> => bridge().request('plugin.open_agent_context', {}),
   openInEditor: (path: string): Promise<void> => bridge().request('host.editor.open', { path }),
   toast: async (level: 'success' | 'info' | 'warn' | 'error', message: string, detail?: string) => {
     try { await bridge().request('host.toast', { level, message, detail }) } catch { /* feedback only */ }

@@ -279,6 +279,27 @@ describe('Conversation Transcript Corrections window', () => {
     expect(host.textContent).not.toContain('Host identity service unavailable')
   })
 
+  it('opens the read-only vocabulary.md from the header, not the YAML dictionary', async () => {
+    const data = snapshot(); data.batches = []
+    const request = vi.fn(async (method: string, _params?: any) => {
+      if (method === 'plugin.initialize') return { status: 'existing', dictionary_created: false }
+      if (method === 'plugin.bootstrap') return data
+      if (method === 'plugin.open_agent_context') return { path: 'ssot/meetings/vocabulary.md', updated: false, revision: 1 }
+      if (method === 'host.editor.open') return {}
+      throw new Error(`unexpected ${method}`)
+    })
+    window.notemd = { pluginId: 'notemd.conversation-dictionary', locale: 'zh', theme: 'light', request, onMessage: () => {} }
+    const host = document.createElement('div'); document.body.append(host); mounted = mount(App, { target: host })
+    let open: HTMLButtonElement | undefined
+    await vi.waitFor(() => {
+      open = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '打开勘误表')
+      expect(open).toBeDefined()
+    })
+    open!.click()
+    await vi.waitFor(() => expect(request).toHaveBeenCalledWith('host.editor.open', { path: 'ssot/meetings/vocabulary.md' }))
+    expect(request).not.toHaveBeenCalledWith('plugin.open_dictionary', expect.anything())
+  })
+
   it('opens on the corrections dictionary and creates a context with one compact form', async () => {
     const data = snapshot(); data.batches = []
     const request = vi.fn(async (method: string) => {
