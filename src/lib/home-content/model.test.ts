@@ -3,14 +3,14 @@ import { emptyCounters, type DeviceAnalytics } from '../insights/model'
 import {
   activityFor, applyAttention, applyEdit, contentKey, contentLists, discoverContent,
   dismissContent, migrateOwnerHistory, normalizeHomeContent,
-  countNewDismiss, normalizeDirRule, passesDirRules, topDir,
-  type ContentCandidate, type HomeDirRules, type VaultContent,
+  automaticallyExcludedFolders, emptyVaultContent, normalizeDirRule, passesDirRules,
+  type ContentCandidate, type HomeDirRules,
 } from './model'
 
 const ROOT = '/fixture/vault'
 const NOW = Date.UTC(2026, 10, 19, 8)
 const DAY = 86_400_000
-const vault = (): VaultContent => ({ initializedAt: 0, migrated: false, docs: {}, dismissCounts: {}, keepDirs: [], askDir: null })
+const vault = emptyVaultContent
 const candidate = (name: string, createdAt: number | null = NOW - DAY, patch: Partial<ContentCandidate> = {}): ContentCandidate => ({
   path: ROOT + '/' + name, title: null, conceptType: null, createdAt, modifiedAt: NOW, ...patch,
 })
@@ -120,7 +120,7 @@ describe('home content selection', () => {
     const state = vault(), c = candidate('source.md')
     discoverContent(state, [c], ROOT, NOW)
     const doc = activityFor(state, c.path, ROOT, NOW)
-    dismissContent(doc, 'continue', NOW)
+    dismissContent(state, doc.path, ROOT, 'continue', NOW)
     const devices = [history(c.path, 0, 60_000)]
     migrateOwnerHistory(state, devices, ROOT)
     migrateOwnerHistory(state, devices, ROOT)
@@ -134,10 +134,10 @@ describe('home content selection', () => {
   it('persists independent dismissals across restart and requires new qualifying activity to return', () => {
     const state = vault(), fresh = candidate('fresh.md'), reading = candidate('reading.md')
     discoverContent(state, [fresh, reading], ROOT, NOW)
-    dismissContent(activityFor(state, fresh.path, ROOT, NOW), 'new', NOW + 1)
+    dismissContent(state, fresh.path, ROOT, 'new', NOW + 1)
     const active = activityFor(state, reading.path, ROOT, NOW)
     applyAttention(active, 60_000, 60_000, NOW + 60_000)
-    dismissContent(active, 'continue', NOW + 70_000)
+    dismissContent(state, active.path, ROOT, 'continue', NOW + 70_000)
     const restored = normalizeHomeContent(JSON.parse(JSON.stringify({ version: 1, vaults: { [ROOT]: state } }))).vaults[ROOT]
     fresh.modifiedAt = NOW + DAY
     discoverContent(restored, [fresh, reading], ROOT, NOW + DAY)
@@ -199,48 +199,21 @@ describe('directory rules', () => {
     expect(paths(lists.continueItems)).toEqual([read.path])
   })
 
-  it('names the first-level directory of a vault document only', () => {
-    expect(topDir('rel:a/b/c.md')).toBe('a')
-    expect(topDir('rel:c.md')).toBeNull()
-    expect(topDir('abs:/outside/a/b.md')).toBeNull()
-  })
-
-  it('asks about a first-level directory on its fourth dismissal, across subdirectories', () => {
+  it('counts only the direct parent of a New content dismissal inside the Vault', () => {
     const state = vault()
-    for (const sub of ['openai/1', 'openai/2', 'claude/3']) countNewDismiss(state, `rel:agent-sessions/${sub}.md`, rules())
-    expect(state.askDir).toBeNull()
-    expect(state.dismissCounts['agent-sessions']).toBe(3)
-    countNewDismiss(state, 'rel:agent-sessions/codex/deep/4.md', rules())
-    expect(state.askDir).toBe('agent-sessions')
-  })
-
-  it('does not count root files, kept directories or already excluded directories', () => {
-    const state = vault()
-    state.keepDirs = ['stat']
-    for (let i = 0; i < 5; i++) {
-      countNewDismiss(state, `rel:root-${i}.md`, rules())
-      countNewDismiss(state, `rel:stat/${i}.md`, rules())
-      countNewDismiss(state, `rel:wechat/${i}.md`, rules(['./wechat/']))
+    for (const path of ['/outside/a/b.md', `${ROOT}/a.md`, `${ROOT}/stat/a.md`, `${ROOT}/agent-sessions/codex/a.md`, `${ROOT}/agent-sessions/claude/b.md`]) {
+      dismissContent(state, path, ROOT, 'new', NOW, rules(['stat']))
     }
-    expect(state.dismissCounts).toEqual({})
-    expect(state.askDir).toBeNull()
+    expect(state.folderDismissals).toEqual({ 'agent-sessions/codex': 1, 'agent-sessions/claude': 1 })
+    expect(automaticallyExcludedFolders(state)).toEqual([])
   })
 
-  it('asks about the most recently dismissed directory when several reach the threshold', () => {
-    const state = vault()
-    for (let i = 0; i < 4; i++) countNewDismiss(state, `rel:stat/${i}.md`, rules())
-    for (let i = 0; i < 4; i++) countNewDismiss(state, `rel:tmp2/${i}.md`, rules())
-    expect(state.askDir).toBe('tmp2')
-    countNewDismiss(state, 'rel:stat/9.md', rules())
-    expect(state.askDir).toBe('stat')
-  })
-
-  it('reads stored data without the new fields, and repairs bad values', () => {
-    const legacy = normalizeHomeContent({ version: 1, vaults: { [ROOT]: { initializedAt: 1, migrated: true, docs: {} } } })
-    expect(legacy.vaults[ROOT]).toMatchObject({ dismissCounts: {}, keepDirs: [], askDir: null })
-    const bad = normalizeHomeContent({ version: 1, vaults: { [ROOT]: {
-      initializedAt: 1, migrated: true, docs: {}, dismissCounts: { stat: 4, x: -1, y: 'no' }, keepDirs: ['a', 3], askDir: 7,
-    } } })
-    expect(bad.vaults[ROOT]).toMatchObject({ dismissCounts: { stat: 4 }, keepDirs: ['a'], askDir: null })
+  it('does not reuse old top-level counts and repairs invalid saved folder counts', () => {
+    const restored = normalizeHomeContent({ version: 1, vaults: { [ROOT]: {
+      initializedAt: 1, migrated: true, docs: {}, dismissCounts: { stat: 4 }, askDir: 'stat', keepDirs: ['sessions'],
+      folderDismissals: { 'data/sessions': 10, 'data/reports': 3, '/outside': 4, '../nested': 4, x: -1, y: 'no' },
+    } } }).vaults[ROOT]
+    expect(restored.folderDismissals).toEqual({ 'data/sessions': 4, 'data/reports': 3 })
+    expect(automaticallyExcludedFolders(restored)).toEqual(['data/sessions'])
   })
 })

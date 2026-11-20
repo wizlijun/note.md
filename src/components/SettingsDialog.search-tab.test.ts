@@ -608,6 +608,48 @@ describe('SettingsDialog — Search & Index tab entry', () => {
     expect(stats).toHaveBeenCalled()
   })
 
+  it('restores an automatically excluded directory from settings without writing shared rules', async () => {
+    const { dismissHomeContent, homeContentStore, installHomeContent, refreshHomeContent } = await import('../lib/home-content/store.svelte')
+    const root = '/tmp/vault'
+    const directory = 'pipeline/agent-sessions'
+    const dismissed = [1, 2, 3, 4].map(n => `${root}/${directory}/${n}.md`)
+    const remaining = `${root}/${directory}/remaining.md`
+    const manual = `${root}/by-rule/excluded.md`
+    const items = [...dismissed, remaining, manual].map(path => ({
+      path, title: null, conceptType: null, createdAt: Date.now(), modifiedAt: Date.now(),
+    }))
+    invokeMock.mockImplementation(async (cmd, args) => {
+      if (cmd === 'home_content_catalog') return { root, items, skipped: 0 }
+      if (cmd === 'notemd_vault_settings_get') return { homeNewExcludeDirs: ['by-rule'] }
+      if (cmd === 'update_latest_menu' || cmd === 'update_recent_menu') return
+      return defaultInvokeImpl(cmd, args)
+    })
+
+    const dispose = installHomeContent(root)
+    try {
+      await refreshHomeContent()
+      for (const path of dismissed) await dismissHomeContent('new', path)
+      expect(homeContentStore.automaticExcludedDirs).toEqual([directory])
+      expect(homeContentStore.newItems).toHaveLength(0)
+
+      await mountDialog()
+      openSettings('search')
+      await settle()
+      const restore = document.querySelector<HTMLButtonElement>(`button[aria-label="Restore ${directory}"]`)!
+      expect(restore).toBeTruthy()
+      restore.click()
+      await settle()
+
+      expect(document.querySelector('.home-new-auto-dirs')).toBeNull()
+      expect(homeContentStore.newItems.map(item => item.path)).toEqual([remaining])
+      expect(document.querySelector<HTMLTextAreaElement>('#settings-home-new-excludes')?.value).toBe('by-rule')
+      expect(invokeMock.mock.calls.some(([cmd]) => cmd === 'notemd_vault_settings_set')).toBe(false)
+    } finally {
+      dispose()
+      installHomeContent(null)()
+    }
+  })
+
   it('exposes the persistent Smart Lookup controls on the Search & Index page', async () => {
     await mountDialog()
     await settle()

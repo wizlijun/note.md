@@ -30,7 +30,7 @@
     saveSearchExcludeDirs, saveSearchLargeFileThreshold, saveSearchSourceGlobs, saveSearchWeights, DEFAULT_SEARCH_WEIGHTS,
     saveHomeNewDirs, type SearchWeights,
   } from '../lib/vault-settings.svelte'
-  import { applyHomeDirRules } from '../lib/home-content/store.svelte'
+  import { applyHomeDirRules, clearAutomaticFolderExclusion, homeContentStore } from '../lib/home-content/store.svelte'
   import { pushToast } from '../lib/toast.svelte'
   import { sotvaultStore } from '../lib/sotvault.svelte'
   import { indexStatus, estimateRebuildSeconds, elideMiddle, formatElapsedMs } from '../lib/search/index-status.svelte'
@@ -472,7 +472,18 @@
       applyHomeDirRules(rules)
       homeNewExcludeDraft = rules.exclude.join('\n')
       homeNewIncludeDraft = rules.include.join('\n')
-      pushToast({ level: 'success', message: t('vaultSync.saved') })
+      pushToast({ level: 'success', message: t('settings.homeNewDirsSaved') })
+    } catch (e) {
+      pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
+    } finally {
+      homeNewDirsBusy = false
+    }
+  }
+  async function onRestoreHomeNewFolder(directory: string) {
+    if (homeNewDirsBusy) return
+    homeNewDirsBusy = true
+    try {
+      await clearAutomaticFolderExclusion(directory)
     } catch (e) {
       pushToast({ level: 'error', message: t('vaultSync.saveFailed', { error: String(e) }), detail: String(e) })
     } finally {
@@ -2028,6 +2039,21 @@
                   disabled={!vaultSettings.vaultPath || homeNewDirsBusy}>{t('vaultSync.save')}</button>
               </div>
             </div>
+            {#if homeContentStore.automaticExcludedDirs.length}
+              <div class="row">
+                <span id="settings-home-new-auto-heading">{t('settings.homeNewAutomaticDirs')}</span>
+              </div>
+              <ul class="home-new-auto-dirs" aria-labelledby="settings-home-new-auto-heading">
+                {#each homeContentStore.automaticExcludedDirs as directory (directory)}
+                  <li class="row">
+                    <code>{directory}</code>
+                    <button type="button" onclick={() => void onRestoreHomeNewFolder(directory)}
+                      aria-label={t('settings.homeNewRestoreDir', { directory })}
+                      disabled={!vaultSettings.vaultPath || homeNewDirsBusy}>{t('settings.homeNewRestore')}</button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
           </section>
           <section class="block">
             <h3>{t('search.index.globsHeading')}</h3>
@@ -2422,6 +2448,7 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
+  .home-new-auto-dirs { margin: 8px 0 0; padding: 0; list-style: none; }
   .row .result { margin: 0; }
   .key-status { color: var(--ui-secondary); }
   .mcp-setup-preview { display: block; width: 100%; box-sizing: border-box; resize: vertical; }

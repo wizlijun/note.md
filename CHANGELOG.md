@@ -7,7 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
-- New content on the home page can exclude folders or show only the folders you choose. After you dismiss 4 items from one folder, it asks whether to stop showing that folder. The home lists' More now collapses back with Less, and keeps loading as you scroll once expanded.
+- Home New Content can include or exclude specific Vault folders. Dismissing a fourth distinct document from a folder automatically excludes that folder, and the exclusion can be restored in settings. Both home document lists toggle More and Less, with a button at the bottom to load another 10 items.
+- The desktop host now uses the versioned Sumi Write core, keeping the writing engine shared with Sumi Write.
 
 ## v6.1120.1 — 2026-11-20
 

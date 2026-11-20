@@ -7,16 +7,15 @@ import { getDeviceId } from '../settings.svelte'
 import { createAnalyticsStore, type Fs } from '../insights/store.svelte'
 import { abbreviateHome, normalize } from '../paths'
 import { formatRecentLabel } from '../recent-merge'
-import { activityFor, applyAttention, applyEdit, contentKey, contentLists, countNewDismiss, discoverContent, dismissContent, normalizeDirRule,
-  emptyVaultContent, emptyHomeContent, migrateOwnerHistory, noDirRules, normalizeHomeContent, passesDirRules, READ_MS,
+import { activityFor, applyAttention, applyEdit, automaticallyExcludedFolders, contentLists, discoverContent, dismissContent,
+  emptyVaultContent, emptyHomeContent, migrateOwnerHistory, noDirRules, normalizeHomeContent, READ_MS,
   type ContentCandidate, type ContentList, type HomeContentData, type HomeContentItem, type HomeDirRules, type VaultContent } from './model'
-import { homeDirRulesFrom, saveHomeNewDirs, type VaultSettingsDto } from '../vault-settings.svelte'
+import { homeDirRulesFrom, type VaultSettingsDto } from '../vault-settings.svelte'
 
 export const homeContentStore = $state({
   newItems: [] as HomeContentItem[], continueItems: [] as HomeContentItem[],
   ready: false, busy: false, error: null as string | null, skipped: 0,
-  /** A first-level directory dismissed often enough to ask about excluding it. */
-  ask: null as { dir: string; count: number } | null,
+  automaticExcludedDirs: [] as string[],
 })
 let data: HomeContentData = emptyHomeContent()
 let storage: Awaited<ReturnType<typeof Store.load>> | null = null
@@ -57,8 +56,8 @@ export function loadHomeContent(): Promise<void> {
 
 function publish(): void {
   const lists = root && catalogReady ? contentLists(vaultFor(root), catalog, root, Date.now(), Infinity, unavailable, dirRules) : { newItems: [], continueItems: [] }
-  const vault = root ? data.vaults[root] : undefined, asked = vault?.askDir
-  homeContentStore.ask = vault && asked && passesDirRules(`${asked}/`, dirRules) ? { dir: asked, count: vault.dismissCounts[asked] ?? 0 } : null
+  const vault = root ? data.vaults[root] : undefined
+  homeContentStore.automaticExcludedDirs = vault ? automaticallyExcludedFolders(vault) : []
   const display = (item: HomeContentItem) => ({ ...item, detail: abbreviateHome(item.detail, home) })
   homeContentStore.newItems = lists.newItems.map(display)
   homeContentStore.continueItems = lists.continueItems.map(display)
@@ -150,16 +149,13 @@ export function refreshHomeContent(): Promise<void> {
 export async function dismissHomeContent(list: ContentList, path: string): Promise<void> {
   const target = root
   if (!target) return
-  const now = Date.now()
+  const now = Date.now(), activeDirRules = dirRules
   const previous = visit
   const replacement = list === 'continue' && visit?.path === path && visit.root === target
     ? { root: target, path, base: null, ms: 0, lastPublished: 0, lastAttentionAt: now } : null
   if (replacement) visit = replacement
   try {
-    await change(target, vault => {
-      dismissContent(activityFor(vault, path, target, now), list, now)
-      if (list === 'new') countNewDismiss(vault, contentKey(path, target), dirRules)
-    })
+    await change(target, vault => dismissContent(vault, path, target, list, now, activeDirRules))
   } catch (error) {
     if (replacement && visit === replacement && previous) { previous.ms += replacement.ms; visit = previous }
     throw error
@@ -173,43 +169,11 @@ export function applyHomeDirRules(next: HomeDirRules): void {
   publish()
 }
 
-/** 〔不再显示〕: append the asked directory to the vault's exclusions. On failure
- *  the prompt and the count stay, and the error is shown. */
-export async function excludeAskedDir(): Promise<void> {
-  const target = root, asked = homeContentStore.ask, epoch = generation
-  if (!target || !asked) return
-  try {
-    // Re-read so a hand edit made since the last refresh is not overwritten.
-    const current = homeDirRulesFrom(await invoke<VaultSettingsDto>('notemd_vault_settings_get'))
-    // Save the list as the home filter reads it: a hand-written `/stat/` or
-    // `./stat` would otherwise be rejected by the backend and block every answer.
-    const exclude: string[] = []
-    for (const dir of [...current.exclude, asked.dir].map(normalizeDirRule)) {
-      if (dir && !exclude.some(kept => kept.toLowerCase() === dir.toLowerCase())) exclude.push(dir)
-    }
-    const next = await saveHomeNewDirs({ exclude })
-    if (generation !== epoch || target !== root) return
-    dirRules = next
-    rulesRevision++
-    await change(target, vault => {
-      if (vault.askDir === asked.dir) vault.askDir = null
-      delete vault.dismissCounts[asked.dir]
-    })
-  } catch (error) {
-    if (generation === epoch) homeContentStore.error = String(error)
-    throw error
-  }
-}
-
-/** 〔继续显示〕: never ask about this directory again on this device. */
-export function keepAskedDir(): Promise<void> {
-  const target = root, asked = homeContentStore.ask
-  if (!target || !asked) return Promise.resolve()
-  return change(target, vault => {
-    if (!vault.keepDirs.includes(asked.dir)) vault.keepDirs.push(asked.dir)
-    if (vault.askDir === asked.dir) vault.askDir = null
-    delete vault.dismissCounts[asked.dir]
-  })
+/** Restore the directory without undoing any individual document dismissal. */
+export function clearAutomaticFolderExclusion(directory: string): Promise<void> {
+  const target = root
+  if (!target || !homeContentStore.automaticExcludedDirs.includes(directory)) return Promise.resolve()
+  return change(target, vault => { delete vault.folderDismissals[directory] })
 }
 
 function saveVisit(current: Visit, now: number): Promise<void> {
@@ -285,7 +249,6 @@ export function installHomeContent(target: string | null, documentRules = rules)
   root = target; rules = documentRules; dirRules = noDirRules; catalog = []; catalogReady = false; scan = null; unavailable = new Set()
   homeContentStore.newItems = []; homeContentStore.continueItems = []
   homeContentStore.ready = !target; homeContentStore.busy = false; homeContentStore.error = null; homeContentStore.skipped = 0
-  homeContentStore.ask = null
   publish()
   let disposed = false, dirty = false
   let timer: ReturnType<typeof setTimeout> | undefined

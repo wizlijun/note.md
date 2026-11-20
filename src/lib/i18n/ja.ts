@@ -18,9 +18,7 @@ export const ja: Record<keyof Messages, string> = {
   "homeContent.retry": "再試行",
   "homeContent.more": "もっと見る",
   "homeContent.less": "閉じる",
-  "homeContent.askExclude": "{dir}/ から {count} 件を非表示にしました。このフォルダを今後表示しませんか?",
-  "homeContent.askExcludeYes": "表示しない",
-  "homeContent.askExcludeNo": "表示を続ける",
+  "homeContent.loadMore": "さらに読み込む",
   "homeContent.rules": "フォルダのルール",
 
 
@@ -1186,6 +1184,10 @@ export const ja: Record<keyof Messages, string> = {
   "settings.homeNewExcludeDirs": "除外するフォルダ",
   "settings.homeNewIncludeDirs": "これらのフォルダのみ",
   "settings.homeNewDirsHint": "1 行に 1 つ、vault 内のフォルダ(サブフォルダを含む)。除外が優先されます。「のみ」を空にすると制限なし。",
+  "settings.homeNewDirsSaved": "フォルダのルールを保存しました",
+  "settings.homeNewAutomaticDirs": "このデバイスで自動的に除外したフォルダ",
+  "settings.homeNewRestore": "復元",
+  "settings.homeNewRestoreDir": "{directory} を復元",
   'settings.editor': 'エディター',
   'diagram.reset': '既定のサイズに戻す（100%）',
   'diagram.region': '図のプレビュー',

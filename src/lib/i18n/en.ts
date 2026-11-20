@@ -23,9 +23,7 @@ export const en = {
   "homeContent.retry": "Retry",
   "homeContent.more": "More",
   "homeContent.less": "Less",
-  "homeContent.askExclude": "Hidden {count} items from {dir}/. Stop showing this folder?",
-  "homeContent.askExcludeYes": "Stop showing",
-  "homeContent.askExcludeNo": "Keep showing",
+  "homeContent.loadMore": "Load more",
   "homeContent.rules": "Folder rules",
 
 
@@ -1236,6 +1234,10 @@ export const en = {
   "settings.homeNewExcludeDirs": "Exclude folders",
   "settings.homeNewIncludeDirs": "Only these folders",
   "settings.homeNewDirsHint": "One vault folder per line, including subfolders. Exclusions win; leave \"only\" empty for no limit.",
+  "settings.homeNewDirsSaved": "Folder rules saved",
+  "settings.homeNewAutomaticDirs": "Automatically excluded on this device",
+  "settings.homeNewRestore": "Restore",
+  "settings.homeNewRestoreDir": "Restore {directory}",
   'settings.editor': 'Editor',
   'diagram.reset': 'Reset to default size (100%)',
   'diagram.region': 'Diagram preview',

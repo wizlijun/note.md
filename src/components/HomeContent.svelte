@@ -1,37 +1,14 @@
 <script lang="ts">
   import { openFile } from '../lib/tabs.svelte'
-  import { homeContentStore, dismissHomeContent, excludeAskedDir, keepAskedDir, refreshHomeContent } from '../lib/home-content/store.svelte'
+  import { homeContentStore, dismissHomeContent, refreshHomeContent } from '../lib/home-content/store.svelte'
   import { openSettings } from '../lib/ui-state.svelte'
   import { t, i18n } from '../lib/i18n/store.svelte'
 
   let actionError = $state<string | null>(null)
   let pending = $state(false)
   const PAGE_SIZE = 10
-  type Kind = 'new' | 'continue'
-  let visibleRows = $state({ new: PAGE_SIZE, continue: PAGE_SIZE })
   let expanded = $state({ new: false, continue: false })
-
-  function toggle(kind: Kind): void {
-    expanded[kind] = !expanded[kind]
-    visibleRows[kind] = expanded[kind] ? PAGE_SIZE * 2 : PAGE_SIZE
-  }
-
-  /** Shows ten more rows each time the list's end scrolls into view. A fresh
-   *  observer per page makes a still-visible sentinel fire again. */
-  function loadMoreOnView(node: HTMLElement, params: { kind: Kind; rows: number }) {
-    let observer: IntersectionObserver | undefined
-    function watch(kind: Kind): void {
-      observer?.disconnect()
-      const Observer = globalThis.IntersectionObserver
-      if (!Observer) return
-      observer = new Observer(entries => {
-        if (entries.some(entry => entry.isIntersecting)) visibleRows[kind] += PAGE_SIZE
-      })
-      observer.observe(node)
-    }
-    watch(params.kind)
-    return { update: (next: { kind: Kind; rows: number }) => watch(next.kind), destroy: () => observer?.disconnect() }
-  }
+  let expandedRows = $state({ new: PAGE_SIZE * 2, continue: PAGE_SIZE * 2 })
   const sections = $derived([
     { kind: 'new' as const, title: t('homeContent.new'), empty: t('homeContent.emptyNew'), items: homeContentStore.newItems },
     { kind: 'continue' as const, title: t('homeContent.continue'), empty: t('homeContent.emptyContinue'), items: homeContentStore.continueItems },
@@ -60,6 +37,8 @@
   {#if homeContentStore.skipped > 0}<p class="content-partial" role="status">{t('homeContent.partial', { count: homeContentStore.skipped })}</p>{/if}
   <div class="content-columns">
     {#each sections as section (section.kind)}
+      {@const isExpanded = expanded[section.kind]}
+      {@const visibleRows = isExpanded ? expandedRows[section.kind] : PAGE_SIZE}
       <section aria-labelledby={`home-content-${section.kind}`}>
         <div class="content-heading">
           <h2 id={`home-content-${section.kind}`}>{section.title}</h2>
@@ -68,24 +47,14 @@
               <button class="content-more content-rules" onclick={() => openSettings('search')}>{t('homeContent.rules')}</button>
             {/if}
             {#if section.items.length > PAGE_SIZE}
-              <button class="content-more" aria-controls={`home-content-list-${section.kind}`} aria-expanded={expanded[section.kind]}
-                onclick={() => toggle(section.kind)}>{expanded[section.kind] ? t('homeContent.less') : t('homeContent.more')}</button>
+              <button class="content-more" aria-controls={`home-content-list-${section.kind}`} aria-expanded={isExpanded}
+                onclick={() => { expanded[section.kind] = !isExpanded }}>{isExpanded ? t('homeContent.less') : t('homeContent.more')}</button>
             {/if}
           </span>
         </div>
-        {#if section.kind === 'new' && homeContentStore.ask}
-          {@const ask = homeContentStore.ask}
-          <div class="content-ask" role="status">
-            <span>{t('homeContent.askExclude', { dir: ask.dir, count: String(ask.count) })}</span>
-            <span class="content-ask-actions">
-              <button class="content-more content-answer" disabled={pending} onclick={() => void action(excludeAskedDir)}>{t('homeContent.askExcludeYes')}</button>
-              <button class="content-more content-answer" disabled={pending} onclick={() => void action(keepAskedDir)}>{t('homeContent.askExcludeNo')}</button>
-            </span>
-          </div>
-        {/if}
         {#if section.items.length}
           <ul id={`home-content-list-${section.kind}`}>
-            {#each section.items.slice(0, visibleRows[section.kind]) as item (item.path)}
+            {#each section.items.slice(0, visibleRows) as item (item.path)}
               <li data-content-kind={section.kind}>
                 <button class="content-open" disabled={pending} title={item.path} onclick={() => void action(() => openFile(item.path))}>
                   <span class="content-topline"><span class="content-title">{item.title}</span><span class="content-date">{dateLabel(item.at)}</span></span>
@@ -95,9 +64,10 @@
               </li>
             {/each}
           </ul>
-          {#if expanded[section.kind] && section.items.length > visibleRows[section.kind]}
-            <div class="content-sentinel" data-content-sentinel={section.kind} aria-hidden="true"
-              use:loadMoreOnView={{ kind: section.kind, rows: visibleRows[section.kind] }}></div>
+          {#if isExpanded && section.items.length > visibleRows}
+            <button class="home-control content-load-more" aria-controls={`home-content-list-${section.kind}`} onclick={() => { expandedRows[section.kind] += PAGE_SIZE }}>
+              {t('homeContent.loadMore')}
+            </button>
           {/if}
         {:else if !homeContentStore.ready && homeContentStore.busy}
           <p class="content-empty" role="status">{t('homeContent.loading')}</p>
@@ -128,10 +98,8 @@
   .content-open:hover, .content-dismiss:hover, .content-more:hover { background:color-mix(in srgb,CanvasText 6%,transparent); }
   button:focus-visible { outline:2px solid var(--ui-accent,Highlight); outline-offset:2px; }
   button:disabled { cursor:default; opacity:.6; }
+  .content-load-more { display:block; margin:12px auto 0; }
   .content-actions { display:flex; align-items:center; gap:12px; }
-  .content-ask { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; margin:0 0 12px; color:GrayText; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
-  .content-ask-actions { display:flex; gap:12px; }
-  .content-sentinel { height:1px; }
   .content-partial { margin:0 0 12px; color:GrayText; font-size:12px; line-height:1.6; }
   .content-empty { margin:0; padding:10px 6px; color:GrayText; font-size:12px; line-height:1.7; }
   .content-error { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; font-size:12px; line-height:1.6; color:var(--ui-danger,#b3261e); overflow-wrap:anywhere; }

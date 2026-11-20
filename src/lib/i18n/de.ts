@@ -16,9 +16,7 @@ export const de: Record<keyof Messages, string> = {
   "homeContent.retry": "Erneut versuchen",
   "homeContent.more": "Mehr",
   "homeContent.less": "Weniger",
-  "homeContent.askExclude": "{count} Einträge aus {dir}/ ausgeblendet. Diesen Ordner nicht mehr anzeigen?",
-  "homeContent.askExcludeYes": "Nicht mehr anzeigen",
-  "homeContent.askExcludeNo": "Weiter anzeigen",
+  "homeContent.loadMore": "Mehr laden",
   "homeContent.rules": "Ordnerregeln",
 
 
@@ -1186,6 +1184,10 @@ export const de: Record<keyof Messages, string> = {
   "settings.homeNewExcludeDirs": "Ordner ausschließen",
   "settings.homeNewIncludeDirs": "Nur diese Ordner",
   "settings.homeNewDirsHint": "Ein Tresor-Ordner pro Zeile, einschließlich Unterordnern. Ausschlüsse haben Vorrang; „nur“ leer lassen für keine Einschränkung.",
+  "settings.homeNewDirsSaved": "Ordnerregeln gespeichert",
+  "settings.homeNewAutomaticDirs": "Auf diesem Gerät automatisch ausgeschlossene Ordner",
+  "settings.homeNewRestore": "Wiederherstellen",
+  "settings.homeNewRestoreDir": "{directory} wiederherstellen",
   'settings.editor': 'Editor',
   'diagram.reset': 'Standardgröße wiederherstellen (100 %)',
   'diagram.region': 'Diagrammvorschau',

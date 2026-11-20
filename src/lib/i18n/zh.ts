@@ -18,9 +18,7 @@ export const zh: Record<keyof Messages, string> = {
   "homeContent.retry": "重试",
   "homeContent.more": "更多",
   "homeContent.less": "更少",
-  "homeContent.askExclude": "{dir}/ 里已关掉 {count} 篇,以后不再显示这个目录?",
-  "homeContent.askExcludeYes": "不再显示",
-  "homeContent.askExcludeNo": "继续显示",
+  "homeContent.loadMore": "加载更多",
   "homeContent.rules": "目录规则",
 
 
@@ -1225,6 +1223,10 @@ export const zh: Record<keyof Messages, string> = {
   "settings.homeNewExcludeDirs": "排除目录",
   "settings.homeNewIncludeDirs": "只看这些目录",
   "settings.homeNewDirsHint": "一行一个库内目录,含子目录;排除优先;「只看」留空表示不限。",
+  "settings.homeNewDirsSaved": "目录规则已保存",
+  "settings.homeNewAutomaticDirs": "在此设备上自动排除的目录",
+  "settings.homeNewRestore": "恢复",
+  "settings.homeNewRestoreDir": "恢复目录 {directory}",
   'settings.editor': '编辑器',
   'diagram.reset': '恢复默认大小（100%）',
   'diagram.region': '图表预览',

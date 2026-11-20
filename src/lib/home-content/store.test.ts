@@ -284,21 +284,19 @@ describe('home content durable activity', () => {
   })
 })
 
-describe('home directory rules and the exclude prompt', () => {
+describe('home directory rules and automatic exclusions', () => {
   let settings: Record<string, unknown>
   let settingsFail: Error | null
-  let setFail: Error | null
   beforeEach(() => {
     settings = { homeNewExcludeDirs: ['stat'] }
-    settingsFail = null; setFail = null
+    settingsFail = null
     mocks.invoke.mockImplementation(async (command: string, args: Record<string, unknown>) => {
       if (command === 'home_content_catalog') return mocks.catalog(args)
       if (command === 'notemd_vault_settings_get') { if (settingsFail) throw settingsFail; return clone(settings) }
-      if (command === 'notemd_vault_settings_set') { if (setFail) throw setFail; settings = { ...settings, ...args }; return clone(settings) }
       return undefined
     })
   })
-  const sessions = (n: number) => Array.from({ length: n }, (_, i) => candidate(`agent-sessions/tool-${i % 2}/s${i}.md`))
+  const sessions = (n: number) => Array.from({ length: n }, (_, i) => candidate(`agent-sessions/codex/s${i}.md`))
   const lastMenu = () => (mocks.invoke.mock.calls.filter(([command]) => command === 'update_latest_menu').at(-1)?.[1] as { items: { path: string }[] }).items.map(item => item.path)
 
   it('hides excluded directories from the new list and the latest menu', async () => {
@@ -308,24 +306,22 @@ describe('home directory rules and the exclude prompt', () => {
     await vi.waitFor(() => expect(lastMenu()).toEqual([candidate('project/r.md').path]))
   })
 
-  it('asks on the fourth new-list dismissal in one first-level directory; continue dismissals do not count', async () => {
-    candidates.set(ROOT, sessions(6))
+  it('excludes only the direct folder at the fourth distinct New content dismissal and reflects it in the menu', async () => {
+    const docs = sessions(6)
+    const child = candidate('agent-sessions/codex/subdir/z.md'), sibling = candidate('agent-sessions/claude/trace.md')
+    const neighbor = candidate('agent-sessions/codex-backup/z.md')
+    candidates.set(ROOT, [...docs, child, sibling, neighbor])
     const s = await load()
-    for (const c of sessions(3)) await s.dismissHomeContent('new', c.path)
-    await s.dismissHomeContent('continue', sessions(6)[5].path)
-    expect(s.homeContentStore.ask).toBeNull()
-    await s.dismissHomeContent('new', sessions(6)[3].path)
-    expect(s.homeContentStore.ask).toEqual({ dir: 'agent-sessions', count: 4 })
-  })
-
-  it('excludes the asked directory through vault settings and drops its entries', async () => {
-    candidates.set(ROOT, [...sessions(6), candidate('project/r.md')])
-    const s = await load()
-    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
-    await s.excludeAskedDir()
-    expect(mocks.invoke).toHaveBeenCalledWith('notemd_vault_settings_set', { homeNewExcludeDirs: ['stat', 'agent-sessions'] })
-    expect(s.homeContentStore.ask).toBeNull()
-    expect(paths(s.homeContentStore.newItems)).toEqual([candidate('project/r.md').path])
+    for (const doc of docs.slice(0, 3)) await s.dismissHomeContent('new', doc.path)
+    await s.dismissHomeContent('new', docs[0].path)
+    await s.dismissHomeContent('continue', docs[5].path)
+    expect(s.homeContentStore.automaticExcludedDirs).toEqual([])
+    expect(paths(s.homeContentStore.newItems)).toContain(child.path)
+    await s.dismissHomeContent('new', docs[3].path)
+    expect(s.homeContentStore.automaticExcludedDirs).toEqual(['agent-sessions/codex'])
+    expect(paths(s.homeContentStore.newItems)).toEqual([sibling.path, neighbor.path])
+    await vi.waitFor(() => expect(lastMenu()).toEqual([sibling.path, neighbor.path]))
+    expect(mocks.invoke.mock.calls.some(([command]) => command === 'notemd_vault_settings_set')).toBe(false)
   })
 
   it('does not let a scan that started before a rule change restore the old rules', async () => {
@@ -342,38 +338,25 @@ describe('home directory rules and the exclude prompt', () => {
     expect(paths(s.homeContentStore.newItems)).toEqual([])
   })
 
-  it('normalizes and de-duplicates hand-written exclusions before saving the asked directory', async () => {
-    settings = { homeNewExcludeDirs: ['/stat/', './agent-sessions/'] }
-    candidates.set(ROOT, [...sessions(6), candidate('project/r.md')])
-    const s = await load()
-    s.applyHomeDirRules({ exclude: ['stat'], include: [] })
-    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
-    await s.excludeAskedDir()
-    expect(mocks.invoke).toHaveBeenCalledWith('notemd_vault_settings_set', { homeNewExcludeDirs: ['stat', 'agent-sessions'] })
-  })
-
-  it('keeps the prompt and the count when saving the exclusion fails', async () => {
-    candidates.set(ROOT, sessions(6))
-    const s = await load()
-    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
-    setFail = new Error('disk full')
-    await expect(s.excludeAskedDir()).rejects.toThrow('disk full')
-    expect(s.homeContentStore.ask).toEqual({ dir: 'agent-sessions', count: 4 })
-    expect(s.homeContentStore.error).toContain('disk full')
-    await s.dismissHomeContent('new', sessions(6)[4].path)
-    expect(s.homeContentStore.ask).toEqual({ dir: 'agent-sessions', count: 5 })
-  })
-
-  it('stops asking about a directory the user keeps, across restart', async () => {
-    candidates.set(ROOT, sessions(6))
+  it('rolls back the fourth dismissal on save failure and restores the persisted exclusion without unhiding dismissed documents', async () => {
+    const docs = sessions(7), folder = 'agent-sessions/codex'
+    candidates.set(ROOT, docs)
     let s = await load()
-    for (const c of sessions(4)) await s.dismissHomeContent('new', c.path)
-    await s.keepAskedDir()
-    expect(s.homeContentStore.ask).toBeNull()
+    for (const doc of docs.slice(0, 3)) await s.dismissHomeContent('new', doc.path)
+    mocks.save.mockRejectedValueOnce(new Error('disk full'))
+    await expect(s.dismissHomeContent('new', docs[3].path)).rejects.toThrow('disk full')
+    expect(s.homeContentStore.automaticExcludedDirs).toEqual([])
+    expect(persisted(docs[3].path).dismissedNew).toBe(false)
+    await s.dismissHomeContent('new', docs[3].path)
     s = await restart()
-    await s.dismissHomeContent('new', sessions(6)[4].path)
-    expect(s.homeContentStore.ask).toBeNull()
-    expect(paths(s.homeContentStore.newItems)).toContain(sessions(6)[5].path)
+    expect(s.homeContentStore.automaticExcludedDirs).toEqual([folder])
+    expect(s.homeContentStore.newItems).toEqual([])
+    await s.clearAutomaticFolderExclusion(folder)
+    expect(s.homeContentStore.automaticExcludedDirs).toEqual([])
+    expect(paths(s.homeContentStore.newItems)).toEqual(docs.slice(4).map(doc => doc.path))
+    s = await restart()
+    await s.dismissHomeContent('new', docs[4].path)
+    expect(paths(s.homeContentStore.newItems)).toEqual(docs.slice(5).map(doc => doc.path))
   })
 
   it('applies rules saved from settings immediately', async () => {
