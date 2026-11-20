@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1120.2 — 2026-11-20
+
 - Home New Content can include or exclude specific Vault folders. Dismissing a fourth distinct document from a folder automatically excludes that folder, and the exclusion can be restored in settings. Both home document lists toggle More and Less, with a button at the bottom to load another 10 items.
 - The desktop host now uses the versioned Sumi Write core, keeping the writing engine shared with Sumi Write.
 
