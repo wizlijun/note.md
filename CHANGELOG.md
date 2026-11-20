@@ -8,6 +8,7 @@ For the full commit history, see the git log.
 ## Unreleased
 
 - **Conversation Transcript Corrections 0.1.14 keeps a compact `vocabulary.md` for agents.** It sits next to the corrections dictionary (default `ssot/meetings/vocabulary.md`), regenerated after every confirmed change. It lists only enabled corrections, grouped by context and kind, so agents can load it as context at a fraction of the YAML size. `notemd conversation-dictionary context` refreshes it and prints its path; add `--domain ID` for one context only.
+- **Conversation Transcript Corrections 0.1.15 writes `vocabulary.md` as plain Markdown.** The file no longer carries front matter or metadata (type, generation time, source, revision); it is a one-way projection of the dictionary and is fully rewritten whenever its content changes, so hand edits do not survive.
 
 ## v6.1120.3 — 2026-11-20
 

@@ -18,8 +18,8 @@ Intel，不提供 Windows 版本。
 ## Agent 上下文:`vocabulary.md`
 
 每次经确认写入词典后，插件在词典同目录生成 `vocabulary.md`(默认
-`ssot/meetings/vocabulary.md`),供 agent 作为上下文插入。它由词典 schema 确定性派生，
-只含已启用规则，按场景(domain)与类型(kind)分组;条目描述、规则 ID、确认时间等不进入。
+`ssot/meetings/vocabulary.md`),供 agent 作为上下文插入。它是纯 Markdown,不含 front matter
+或任何元数据(版本、时间、来源等),由词典 schema 确定性派生，只含已启用规则，按场景(domain)与类型(kind)分组;条目描述、规则 ID、确认时间等不进入。
 图例只解释正文实际用到的记号:
 
 - `A ← x, y`:x、y 指 A,上下文吻合时替换(`application: suggest`);
@@ -28,8 +28,8 @@ Intel，不提供 Windows 版本。
 - 单独的 `A`:属于该场景、但没有替换规则的正式写法;
 - 含分隔符(含全角 `、，；`)的写法以 JSON 字符串给出。
 
-规则只在所属场景内生效(与 `resolve` 一致,`public` 也不会套用到其它场景)。该文件是只读
-派生数据，不要手工编辑;若同路径已有非本插件生成的文件，插件不会覆盖。
+规则只在所属场景内生效(与 `resolve` 一致,`public` 也不会套用到其它场景)。写入是单向的:
+插件只从词典生成该文件、从不读回，内容不同就整份覆盖，手工修改会被下次生成覆盖。
 
 插件窗口中的「安装 Agent Skill」会在 Vault 内安装
 `.agents/skills/build-conversation-dictionary/`，并在 `AGENTS.md` 中加入有边界的

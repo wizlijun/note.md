@@ -211,14 +211,11 @@ impl DictionaryService {
         let (dictionary, _) = storage::verified_dictionary(&self.vault)?;
         validate_dictionary(&dictionary)?;
         match domain_id {
-            Some(id) => {
-                let settings = storage::load_settings(&self.vault)?;
-                Ok(json!({
-                    "domain_id": id,
-                    "revision": dictionary.revision,
-                    "markdown": agent_context::render(&dictionary, &settings.dictionary_path, Some(id))?,
-                }))
-            }
+            Some(id) => Ok(json!({
+                "domain_id": id,
+                "revision": dictionary.revision,
+                "markdown": agent_context::render(&dictionary, Some(id))?,
+            })),
             None => agent_context::sync(&self.vault, &dictionary),
         }
     }
@@ -3749,7 +3746,7 @@ mod tests {
         );
         let vocabulary =
             fs::read_to_string(temp.path().join("ssot/meetings/vocabulary.md")).unwrap();
-        assert!(vocabulary.contains("revision: 2\n"));
+        assert!(vocabulary.starts_with("# Transcript corrections\n"));
         assert!(vocabulary.contains("- person: 伟滔 ← Bruce, 伟涛, 伟韬\n"));
         let context = service.agent_context(None).unwrap();
         assert_eq!(context["path"], "ssot/meetings/vocabulary.md");

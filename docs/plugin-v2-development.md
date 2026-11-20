@@ -489,7 +489,6 @@ interface SideView {
 | `Decision Board` / `Decision Archive` | 「决策」的未决看板与已裁决归档 |
 | `Idea` | 奇思妙想(idea-spark)里用户写下的 idea 原文 |
 | `Idea Proof` | 奇思妙想里 agent 产出的论证文档 `<name>.proof.md` |
-| `Conversation Corrections` | 沟通转写勘误由已确认词典派生的 agent 上下文 `vocabulary.md` |
 
 **自检**:`pnpm okf:lint <目录>`(退出码非 0 即有违反,`--ignore <glob>` 排除镜像/报表目录);单测里可直接 `import { lintText } from 'scripts/okf-lint-core.mjs'` 断言产物合规。
 
