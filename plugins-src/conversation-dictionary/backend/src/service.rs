@@ -3747,7 +3747,7 @@ mod tests {
         let vocabulary =
             fs::read_to_string(temp.path().join("ssot/meetings/vocabulary.md")).unwrap();
         assert!(vocabulary.starts_with("# Transcript corrections\n"));
-        assert!(vocabulary.contains("- person: 伟滔 ← Bruce, 伟涛, 伟韬\n"));
+        assert!(vocabulary.contains("- person: Bruce, 伟涛, 伟韬 → 伟滔\n"));
         let context = service.agent_context(None).unwrap();
         assert_eq!(context["path"], "ssot/meetings/vocabulary.md");
         assert_eq!(context["updated"], false);

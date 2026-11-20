@@ -5,8 +5,9 @@
 //! after every reviewed write and never read back, so agents can load the confirmed
 //! corrections without parsing UUID-heavy YAML. Rendering follows the
 //! dictionary schema directly: contexts are `domains`, kinds are the
-//! `EntryKind` serde values, `application: automatic` becomes `*`, and
-//! `action: preserve` becomes `keep:`. Disabled rules never appear.
+//! `EntryKind` serde values, a rule reads `heard → correct` (left to right,
+//! like any find-and-replace list), `application: automatic` adds `(always)`,
+//! and `action: preserve` becomes `do not change:`. Disabled rules never appear.
 
 use crate::model::{Dictionary, EntryKind, RuleAction, RuleApplication, PUBLIC_DOMAIN_ID};
 use crate::storage;
@@ -26,7 +27,6 @@ const OUTRO: &str = "Read-only. Propose changes with `notemd conversation-dictio
 struct Notation {
     replace: bool,
     automatic: bool,
-    keep: bool,
     bare: bool,
     quoted: bool,
 }
@@ -36,17 +36,15 @@ impl Notation {
         let mut out = String::from(INTRO);
         if self.replace {
             out.push_str(
-                "- `A ← x, y`: x or y means A; replace when the surrounding text agrees.\n",
+                "- `x, y → A`: the transcript says x or y where the speaker meant A; \
+                 fix it when the surrounding text agrees.\n",
             );
         }
         if self.automatic {
-            out.push_str("- `x*`: always replace x.\n");
-        }
-        if self.keep {
-            out.push_str("- `keep: x`: never change x.\n");
+            out.push_str("- `(always)`: fix it every time.\n");
         }
         if self.bare {
-            out.push_str("- Bare `A`: known correct spelling.\n");
+            out.push_str("- A name with no arrow is already spelled correctly.\n");
         }
         if self.quoted {
             out.push_str("- `\"…\"` is one JSON string.\n");
@@ -157,27 +155,31 @@ impl Section {
                         return formal;
                     }
                     notation.replace = true;
-                    let forms: Vec<String> = observed
-                        .iter()
-                        .map(|(form, automatic)| {
-                            let form = token(form, notation);
-                            if *automatic {
-                                notation.automatic = true;
-                                format!("{form}*")
-                            } else {
-                                form
-                            }
-                        })
-                        .collect();
-                    format!("{formal} ← {}", forms.join(", "))
+                    let heard = |always: bool, notation: &mut Notation| -> Vec<String> {
+                        observed
+                            .iter()
+                            .filter(|(_, automatic)| *automatic == always)
+                            .map(|(form, _)| token(form, notation))
+                            .collect()
+                    };
+                    let mut parts = Vec::new();
+                    let suggested = heard(false, notation);
+                    if !suggested.is_empty() {
+                        parts.push(format!("{} → {formal}", suggested.join(", ")));
+                    }
+                    let always = heard(true, notation);
+                    if !always.is_empty() {
+                        notation.automatic = true;
+                        parts.push(format!("{} → {formal} (always)", always.join(", ")));
+                    }
+                    parts.join("; ")
                 })
                 .collect();
             out.push_str(&format!("- {}: {}\n", KIND_NAMES[*kind], items.join("; ")));
         }
         if !self.keep.is_empty() {
-            notation.keep = true;
             let keep: Vec<String> = self.keep.iter().map(|form| token(form, notation)).collect();
-            out.push_str(&format!("- keep: {}\n", keep.join(", ")));
+            out.push_str(&format!("- do not change: {}\n", keep.join(", ")));
         }
     }
 }
@@ -312,8 +314,9 @@ impl Section {
 fn token(value: &str, notation: &mut Notation) -> String {
     let ambiguous = value.is_empty()
         || value.trim() != value
+        || value.ends_with("(always)")
         || value.chars().any(|c| {
-            matches!(c, ',' | ';' | '←' | '*' | '"' | '`' | '、' | '，' | '；') || c.is_control()
+            matches!(c, ',' | ';' | '→' | '←' | '"' | '`' | '、' | '，' | '；') || c.is_control()
         });
     if ambiguous {
         notation.quoted = true;
@@ -422,19 +425,19 @@ mod tests {
         assert_eq!(
             sections,
             "## public\n\
-             - person: 伟滔 ← \"a, b\", \"校长、二宇\"\n\
+             - person: \"a, b\", \"校长、二宇\" → 伟滔\n\
              - acronym: OKF\n\
              \n\
              ## team\n\
              核心团队 沟通\n\
-             - person: 丽君; 伟滔 ← 伟涛*\n\
-             - product: Hemory SaaS控制面板 ← CP, 控制面板\n\
-             - keep: ONES"
+             - person: 丽君; 伟涛 → 伟滔 (always)\n\
+             - product: CP, 控制面板 → Hemory SaaS控制面板\n\
+             - do not change: ONES"
         );
         assert!(!text.contains("伟韬"), "disabled rules are omitted");
         assert!(!text.contains("noise"), "entry descriptions are omitted");
         assert!(!text.contains("empty"), "empty contexts are omitted");
-        for marker in ["`A ← x, y`", "`x*`", "`keep: x`", "Bare `A`", "JSON string"] {
+        for marker in ["`x, y → A`", "`(always)`", "no arrow", "JSON string"] {
             assert!(text.contains(marker), "legend explains {marker}");
         }
     }
@@ -446,8 +449,8 @@ mod tests {
         dictionary.entries.retain(|entry| entry.id == "e_cp");
         dictionary.entry_domains.clear();
         let text = render(&dictionary, None).unwrap();
-        assert!(text.contains("`A ← x, y`"));
-        for marker in ["`x*`", "`keep: x`", "Bare `A`", "JSON string"] {
+        assert!(text.contains("`x, y → A`"));
+        for marker in ["`(always)`", "no arrow", "JSON string"] {
             assert!(!text.contains(marker), "legend omits unused {marker}");
         }
     }
