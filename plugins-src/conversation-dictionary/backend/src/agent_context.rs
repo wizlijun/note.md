@@ -141,12 +141,7 @@ impl Section {
     }
 
     fn write(&self, out: &mut String, notation: &mut Notation) {
-        let name = one_line(&self.name);
-        if name == self.id {
-            out.push_str(&format!("## {name}\n"));
-        } else {
-            out.push_str(&format!("## {name} (id: {})\n", self.id));
-        }
+        out.push_str(&format!("## {}\n", one_line(&self.name)));
         let description = one_line(&self.description);
         if !description.is_empty() {
             out.push_str(&description);
@@ -430,7 +425,7 @@ mod tests {
              - person: 伟滔 ← \"a, b\", \"校长、二宇\"\n\
              - acronym: OKF\n\
              \n\
-             ## team (id: d_team)\n\
+             ## team\n\
              核心团队 沟通\n\
              - person: 丽君; 伟滔 ← 伟涛*\n\
              - product: Hemory SaaS控制面板 ← CP, 控制面板\n\
@@ -471,6 +466,7 @@ mod tests {
         ] {
             assert!(!text.contains(metadata), "no metadata: {metadata}");
         }
+        assert!(!text.contains("d_team"), "no internal ids");
         assert_eq!(text, render(&fixture(), None).unwrap());
     }
 

@@ -19,7 +19,7 @@ Intel，不提供 Windows 版本。
 
 每次经确认写入词典后，插件在词典同目录生成 `vocabulary.md`(默认
 `ssot/meetings/vocabulary.md`),供 agent 作为上下文插入。它是纯 Markdown,不含 front matter
-或任何元数据(版本、时间、来源等),由词典 schema 确定性派生，只含已启用规则，按场景(domain)与类型(kind)分组;条目描述、规则 ID、确认时间等不进入。
+或任何元数据(版本、时间、来源等),由词典 schema 确定性派生，只含已启用规则，按场景(domain)与类型(kind)分组;场景以名称为标题;场景、条目、规则的 ID,条目描述、确认时间等都不进入。
 图例只解释正文实际用到的记号:
 
 - `A ← x, y`:x、y 指 A,上下文吻合时替换(`application: suggest`);
