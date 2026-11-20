@@ -211,6 +211,10 @@ $(node scripts/changelog.mjs check 2>&1)
 
 在 CHANGELOG.md 与 CHANGELOG.zh-CN.md 的「未发布」区写上这一版的用户可感知变化,再发。"
 
+# moraya-core 门禁。Rich 编辑器跑在未锁版本的 ../moraya-core 上;checkout 落后或
+# dist 与 node_modules 不一致时,发出去的就是旧编辑行为(全选删除被拒等)。
+node scripts/check-moraya-core.mjs || die "moraya-core 与宿主不同步,见上方提示"
+
 # Detach any leftover bundle_dmg.sh random-mount points from previous failed
 # runs. They show up as /Volumes/dmg.XXXXXX. Tauri's dmg packaging step
 # (bundle_dmg.sh) silently fails if a conflicting mount exists.

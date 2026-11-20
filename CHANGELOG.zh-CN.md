@@ -9,6 +9,8 @@
 - **沟通转写勘误 0.1.14 为 agent 维护精简的 `vocabulary.md`。** 它位于词典旁(默认 `ssot/meetings/vocabulary.md`),每次确认修改后自动重新生成。它只列出已启用的勘误，按场景和类型分组，供 agent 作为上下文加载，体积只有 YAML 的一小部分。`notemd conversation-dictionary context` 可刷新该文件并输出路径;加 `--domain ID` 只输出单个场景。
 - **沟通转写勘误 0.1.16 的 `vocabulary.md` 不再含内部 ID。** 场景标题只显示名称，不再附带 `(id: …)`。
 - **沟通转写勘误 0.1.15 的 `vocabulary.md` 改为纯 Markdown。** 文件不再带 front matter 或任何元数据(类型、生成时间、来源、版本号);它由词典单向生成，内容变化时整份重写，手工修改不会保留。
+- 修复 Rich 编辑器在行尾按回车无反应的问题(新建笔记输入第一行后最明显)。
+- 修复带 front matter 的笔记(包括新建笔记)全选后按 Delete/Backspace 无法删除的问题。
 
 ## v6.1120.3 — 2026-11-20
 

@@ -51,6 +51,17 @@ function sealChain(tr:Transaction):()=>boolean {
  return ()=>tr.before===before&&tr.doc===doc&&tr.mapping===mapping&&tr.steps.length===steps.length&&tr.docs.length===docs.length
   &&steps.every((step,i)=>step===tr.steps[i])&&docs.every((node,i)=>node===tr.docs[i])&&intact.every(check=>check())&&json===JSON.stringify(tr.steps.map(step=>step.toJSON()))
 }
+/**
+ * The one boundary from Moraya's source patches to a SourceHistoryStep payload.
+ * Moraya's root renderer may re-emit an unchanged root beside the real change
+ * (Enter at a paragraph end yields `hello→hello` plus the inserted blank line),
+ * while SourceHistoryStep rejects any identity edit. Unfiltered, that rejection
+ * silently refuses the whole user transaction. Identity edits are
+ * length-preserving, so dropping them never moves later offsets.
+ */
+export function sourceHistoryEdits(edits:readonly SourcePatch[]){
+ return SourceHistoryStep.canonicalEdits(edits.filter(edit=>edit.removed!==edit.text))
+}
 function sourceDifference(before:string,after:string):SourcePatch[]{
  if(before===after)return []
  let from=0,left=before.length,right=after.length
@@ -89,7 +100,7 @@ export function createFileController(options:FileControllerOptions){
  function validateFinal(state:EditorState){const s=read(state);if(!state.doc.eq(projectBindings(s.session,s.bindings)))fail('invalid-final-projection');validateLayout(state.doc,s.layout)}
  function appendPayload(tr:Transaction,base:FileState,next:FileState,edits:readonly SourcePatch[]){
   if(next.session.source!==base.session.source){
-   tr.step(new SourceHistoryStep([{beforeLineage:base.sourceLineage,afterLineage:next.sourceLineage,beforeHash:base.sourceHash,afterHash:next.sourceHash,edits:SourceHistoryStep.canonicalEdits(edits),...(!same(base.bindings,next.bindings)?{bindings:{before:{sourceHash:base.sourceHash,roots:base.bindings},after:{sourceHash:next.sourceHash,roots:next.bindings}}}:{})}]))
+   tr.step(new SourceHistoryStep([{beforeLineage:base.sourceLineage,afterLineage:next.sourceLineage,beforeHash:base.sourceHash,afterHash:next.sourceHash,edits:sourceHistoryEdits(edits),...(!same(base.bindings,next.bindings)?{bindings:{before:{sourceHash:base.sourceHash,roots:base.bindings},after:{sourceHash:next.sourceHash,roots:next.bindings}}}:{})}]))
   }
   const deltas=layoutDeltas(base.layout,next.layout);if(deltas.length)tr.step(new TableLayoutStep(deltas))
  }
@@ -230,6 +241,7 @@ export function createFileController(options:FileControllerOptions){
  }},filterTransaction(tr,state){try{prepareActual(tr,state);return true}catch(error){if(active)active.failed=true;lastError=error;return false}}})
  function admit(tr:Transaction,execute:boolean):boolean{
   if(inDispatch||tr.before!==current.doc)return false
+  lastError=null // diagnostic describes the latest admission, never a stale one
   const base=current,frame:Frame={root:tr,failed:false,prepared:new Set(),rootKind:intents.get(tr)?.kind??'local-rich'}
   inDispatch=true;active=frame
   try{

@@ -237,7 +237,11 @@ export async function mountFileEditor(container: HTMLElement, options: MountFile
       dispatchTransaction(view, tr) {
         // Plugin startup microtasks may dispatch before createEditor resolves.
         if (mounting && controller.view !== view) controller.bindView(view)
-        controller.dispatch(tr)
+        // A refused doc change leaves the user's keypress with no effect; make
+        // that visible instead of failing silently (Enter/Delete "doing nothing").
+        if (!controller.dispatch(tr) && tr.docChanged && !controller.state.doc.eq(tr.doc)) {
+          console.warn('[note.md] rich edit rejected', controller.diagnostic)
+        }
       },
       enableHistory: true, enableTableResize: false,
     }), ime)
