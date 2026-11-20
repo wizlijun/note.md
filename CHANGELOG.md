@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+## v6.1120.3 — 2026-11-20
+
 - The home New Content and Continue Reading lists start with four documents each. Select More to expand a list.
 
 ## v6.1120.2 — 2026-11-20
