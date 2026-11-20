@@ -1,3 +1,4 @@
+// Host-side copy. Sumi Write keeps its own i18n in sumiwrite (apps/notemd-plugin/); the two are no longer synced.
 export type Locale = 'zh' | 'en' | 'ja'
 export function normalizeLocale(value: string): Locale {
   const base = value.trim().toLowerCase().split(/[-_]/)[0]

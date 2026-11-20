@@ -1,3 +1,6 @@
+// Sumi Write now keeps its own copy of these shortcuts in sumiwrite (apps/notemd-plugin/).
+// The two copies are no longer synced; change this one only for note.md plugins.
+
 import { isApplePlatformSync } from '../../src/lib/platform-sync'
 import { hasPrimaryModifier } from '../../src/lib/primary-modifier'
 
