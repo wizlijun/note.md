@@ -388,12 +388,21 @@ release_sumi() {
   fi
   local work; work="$(mktemp -d)"
   trap 'rm -rf "$work"' RETURN
-  bash "$app/scripts/build-artifact.sh" --target "$triple" --out "$work/artifact"
-  local stage="$work/artifact/stage" checklist="$work/artifact/checklist.json" listed
+  # A failing build exits the script under set -e without firing the RETURN trap.
+  bash "$app/scripts/build-artifact.sh" --target "$triple" --out "$work/artifact" || { rm -rf "$work"; return 1; }
+  local stage="$work/artifact/stage" checklist="$work/artifact/checklist.json" listed field expect
   listed="$(manifest_field "$checklist" source_commit)"
   if [[ "$listed" != "$plugin_commit" ]]; then
     echo "Sumi checklist source_commit $listed differs from sumiwrite HEAD $plugin_commit" >&2; return 1
   fi
+  # note.md is the receiving side: the checklist must describe this exact plugin, version and target.
+  for field in plugin version target; do
+    case "$field" in plugin) expect="$id" ;; version) expect="$version" ;; target) expect="$triple" ;; esac
+    listed="$(manifest_field "$checklist" "$field")"
+    if [[ "$listed" != "$expect" ]]; then
+      echo "Sumi checklist $field '$listed' differs from expected '$expect'" >&2; return 1
+    fi
+  done
   python3 -I "$app/scripts/verify-stage.py" --verify-checklist "$checklist" --stage "$stage"
   if [[ "${SUMI_RELEASE_STOP_BEFORE_SIGN:-}" == 1 ]]; then
     echo "[$id] $triple stage verified from $tag ($plugin_commit); SUMI_RELEASE_STOP_BEFORE_SIGN=1, stopping before signing"

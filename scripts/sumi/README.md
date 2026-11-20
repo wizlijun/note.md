@@ -82,7 +82,7 @@ node scripts/sumi/sample-process.mjs 123,456 60 /tmp/sumi-memory.json
 
 ## 插件源码位置:`SUMIWRITE_DIR`
 
-玄霜写作插件(`notemd.sumi`)的源码、字体目录 `resources/sumi/manifest.json` 与音效都在 sumiwrite 的 `apps/notemd-plugin/`,note.md 不再保留副本。note.md 里所有需要这些文件的脚本统一读环境变量 `SUMIWRITE_DIR`,默认是 note.md 旁边的 `../sumiwrite`;目录不存在时报“需要 sumiwrite 检出,设置 SUMIWRITE_DIR”并非零退出,不静默跳过。读它的有:`scripts/prepare-sumi-font.py`(因而 `pnpm build` 与 `scripts/release.sh` 也需要这份检出)、`scripts/dev-install-plugin.sh sumi`、`scripts/release-plugins.sh sumi`、`acceptance/build.sh` 与 `acceptance/prepare.py`。两个原生探针不读环境变量,由调用者在字体目录参数后面传字体目录文件路径:`focus-probe <截图> <字体目录> <manifest.json>`、`focus-return-probe <字体目录> <manifest.json> [截图]`。
+玄霜写作插件(`notemd.sumi`)的源码、字体目录 `resources/sumi/manifest.json` 与音效都在 sumiwrite 的 `apps/notemd-plugin/`,note.md 不再保留副本。note.md 里所有需要这些文件的脚本统一读环境变量 `SUMIWRITE_DIR`,默认是 note.md 旁边的 `../sumiwrite`;目录不存在时报“需要 sumiwrite 检出,设置 SUMIWRITE_DIR”并非零退出,不静默跳过。读它的有:`scripts/prepare-sumi-font.py`、`scripts/dev-install-plugin.sh sumi`、`scripts/release-plugins.sh sumi`、`acceptance/build.sh` 与 `acceptance/prepare.py`。宿主构建(`pnpm build`、`scripts/release.sh`)不需要 sumiwrite 检出:它们不再跑 `prepare-sumi-font.py`,开发字体缓存 `src-tauri/resources/sumi` 不进宿主包。`acceptance/build.sh` 会自己先跑 `prepare-sumi-font.py`;单独用 `node scripts/sumi/serve.mjs` 或 `node scripts/sumi/run-native.mjs` 之前,需手动执行一次 `python3 scripts/prepare-sumi-font.py`(需要 sumiwrite 检出,幂等并核对固定哈希)。两个原生探针不读环境变量,由调用者在字体目录参数后面传字体目录文件路径:`focus-probe <截图> <字体目录> <manifest.json>`、`focus-return-probe <字体目录> <manifest.json> [截图]`。
 
 插件由 sumiwrite 的 `apps/notemd-plugin/scripts/build-artifact.sh --target <triple> --out <目录> [--debug]` 构建,产出未签名的 `stage/` 与 `checklist.json`;note.md 只负责安装、签名、公证、打包与上架。
 

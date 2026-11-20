@@ -7,7 +7,7 @@
 先精确提交源码，再构建宿主、插件UI及当前平台后台。后台必须完成独立Developer ID签名与Apple公证；其签后字节用于冻结和最终插件包。当前manifest只声明arm64，正式冻结和验收明确拒绝Intel。未来若要支持Intel，须先扩展manifest并独立构建、冻结和验收，不能共用包含后台二进制摘要的冻结输入。
 
 ```sh
-python3 scripts/sumi/verify-release.py --self-test
+python3 scripts/sumi/verify-release.py --self-test   # 读取历史源码,本地必须有 tag v6.1111.1(浅克隆或 --no-tags 需先 git fetch --tags)
 python3 -m unittest discover -s scripts/sumi -p test_native_release.py
 python3 scripts/sumi/verify-release.py --freeze-inputs \
   --arch arm64 --expected-source FULL_COMMIT_SHA \

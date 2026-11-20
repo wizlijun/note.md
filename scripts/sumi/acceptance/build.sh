@@ -37,6 +37,8 @@ if [[ "${SUMI_ACCEPTANCE_SIGNING_IDENTITY:--}" != "-" ]]; then sumi_sign_args+=(
 codesign "${sumi_sign_args[@]}" "$sumi_backend"
 codesign --verify --strict "$sumi_backend"
 sumi_backend_sha=$(shasum -a 256 "$sumi_backend" | awk '{print $1}')
+# Benchmark-only development fonts (ignored cache); idempotent, verifies pinned hashes.
+python3 scripts/prepare-sumi-font.py
 python3 scripts/sumi/acceptance/prepare.py --install --backend-binary "$sumi_backend" --backend-sha256 "$sumi_backend_sha"
 python3 - <<'PY'
 import json,sys
