@@ -346,12 +346,32 @@ release_quick_launch() {
   rm -rf "$stage"; trap - RETURN
 }
 
-# Sumi macOS builds retain the Developer ID + Apple notarization gate.
-# Linux packages validate the native ELF and use the same mandatory minisign gate.
+# Sumi is built in sumiwrite (SUMIWRITE_DIR, default ../sumiwrite) by its
+# build-artifact.sh, which emits an unsigned stage/ plus checklist.json. A release
+# requires that checkout to sit, clean, exactly on tag notemd-plugin-v<version>.
+# macOS builds retain the Developer ID + Apple notarization gate; Linux ELF checks
+# run inside build-artifact.sh. Both use the same mandatory minisign gate.
+# SUMI_RELEASE_STOP_BEFORE_SIGN=1 stops right after the stage verifies (rehearsal).
 release_sumi() {
-  local id="notemd.sumi" src="$REPO_ROOT/plugins-src/write"
-  local manifest="$src/manifest.v2.json" version source_commit triple
+  local id="notemd.sumi" sumiwrite="${SUMIWRITE_DIR:-$REPO_ROOT/../sumiwrite}"
+  if [[ ! -d "$sumiwrite" ]]; then
+    echo "需要 sumiwrite 检出,设置 SUMIWRITE_DIR (not found: $sumiwrite)" >&2; return 1
+  fi
+  sumiwrite="$(cd "$sumiwrite" && pwd)"
+  local app="$sumiwrite/apps/notemd-plugin"
+  local manifest="$app/manifest.v2.json" version source_commit plugin_commit tag triple
+  if [[ ! -f "$manifest" ]]; then
+    echo "需要 sumiwrite 检出,设置 SUMIWRITE_DIR (no apps/notemd-plugin in: $sumiwrite)" >&2; return 1
+  fi
   version="$(manifest_field "$manifest" version)"
+  tag="$(git -C "$sumiwrite" describe --exact-match --tags --match "notemd-plugin-v*" 2>/dev/null || true)"
+  if [[ "$tag" != "notemd-plugin-v$version" ]]; then
+    echo "Sumi release requires $sumiwrite checked out exactly at tag notemd-plugin-v$version (found: ${tag:-no tag})" >&2; return 1
+  fi
+  if [[ -n "$(git -C "$sumiwrite" status --porcelain)" ]]; then
+    echo "Sumi release requires a clean sumiwrite checkout (git status --porcelain is not empty): $sumiwrite" >&2; return 1
+  fi
+  plugin_commit="$(git -C "$sumiwrite" rev-parse HEAD)"
   source_commit="$(git rev-parse HEAD)"
   export PATH="$HOME/.cargo/bin:$PATH"
   triple="${SUMI_RELEASE_TARGET:-aarch64-apple-darwin}"
@@ -359,7 +379,6 @@ release_sumi() {
     triple="$(rustc -vV | sed -n 's/^host: //p')"
   fi
   case "$triple" in aarch64-apple-darwin|x86_64-apple-darwin|x86_64-unknown-linux-gnu) ;; *) echo "Unsupported Sumi target" >&2; return 1 ;; esac
-  node -e 'const m=require(process.argv[1]);if(m.binary?.[process.argv[2]]!=="bin/notemd-sumi")throw Error("Sumi native manifest target mismatch")' "$manifest" "$triple"
   if [[ "$triple" == *-apple-darwin ]]; then
     [[ "${APPLE_SIGNING_IDENTITY:-}" == "Developer ID Application:"* ]] || { echo "Sumi requires an explicit Developer ID Application identity" >&2; return 1; }
     [[ -n "${APPLE_TEAM_ID:-}" ]] || { echo "Sumi requires APPLE_TEAM_ID" >&2; return 1; }
@@ -367,62 +386,40 @@ release_sumi() {
       echo "Sumi requires notary credentials or SUMI_NOTARY_PROFILE" >&2; return 1
     fi
   fi
-  cargo build --release --locked --manifest-path "$src/backend/Cargo.toml" --bin notemd-sumi --target "$triple"
-  local unsigned="$src/backend/target/$triple/release/notemd-sumi"
+  local work; work="$(mktemp -d)"
+  trap 'rm -rf "$work"' RETURN
+  bash "$app/scripts/build-artifact.sh" --target "$triple" --out "$work/artifact"
+  local stage="$work/artifact/stage" checklist="$work/artifact/checklist.json" listed
+  listed="$(manifest_field "$checklist" source_commit)"
+  if [[ "$listed" != "$plugin_commit" ]]; then
+    echo "Sumi checklist source_commit $listed differs from sumiwrite HEAD $plugin_commit" >&2; return 1
+  fi
+  python3 -I "$app/scripts/verify-stage.py" --verify-checklist "$checklist" --stage "$stage"
+  if [[ "${SUMI_RELEASE_STOP_BEFORE_SIGN:-}" == 1 ]]; then
+    echo "[$id] $triple stage verified from $tag ($plugin_commit); SUMI_RELEASE_STOP_BEFORE_SIGN=1, stopping before signing"
+    rm -rf "$work"; trap - RETURN
+    return 0
+  fi
   local out_dir="$OUT_ROOT/$id/$version" native_dir="$OUT_ROOT/$id/$version/native-$triple"
   mkdir -p "$out_dir"
   # This helper persists the submission ID and resumes that same job; no
   # ambiguous retry ever submits a second archive automatically.
   if [[ "$triple" == *-apple-darwin ]]; then
     python3 scripts/sumi/native-release.py --sign-and-notarize --source "$source_commit" \
-      --target "$triple" --binary "$unsigned" --output-dir "$native_dir"
-  else
-    python3 scripts/sumi/verify-linux-binary.py "$unsigned" --target "$triple"
-    mkdir -p "$native_dir"
-    cp "$unsigned" "$native_dir/notemd-sumi"
+      --target "$triple" --binary "$stage/bin/notemd-sumi" --checklist "$checklist" --output-dir "$native_dir"
+    cp "$native_dir/notemd-sumi" "$stage/bin/notemd-sumi"
+    chmod +x "$stage/bin/notemd-sumi"
   fi
-  ( cd "$src" && node ../../node_modules/typescript/bin/tsc --noEmit && node ../../node_modules/vite/bin/vite.js build )
-  local stage; stage="$(mktemp -d)"
-  trap 'rm -rf "$stage"' RETURN
-  mkdir -p "$stage/bin" "$stage/ui"
-  cp "$manifest" "$stage/manifest.json"
-  cp "$native_dir/notemd-sumi" "$stage/bin/notemd-sumi"
-  chmod +x "$stage/bin/notemd-sumi"
-  cp -R "$src/dist/." "$stage/ui/"
-  # Vite copies public resources into dist. Verify sounds before moving only
-  # that exact directory out of UI; ship one native-readable copy per package.
-  python3 scripts/sumi/verify-sounds.py "$stage/ui/sounds" --reference "$src/resources/sounds"
-  mkdir -p "$stage/resources"
-  mv "$stage/ui/sounds" "$stage/resources/sounds"
-  python3 scripts/sumi/verify-sounds.py "$stage/resources/sounds" --reference "$src/resources/sounds"
-  # Exact catalog/license bytes and no font payload anywhere in the plugin.
-  python3 - "$stage" "$src/resources/sumi" <<'PYGATE'
-import hashlib,json,sys
-from pathlib import Path
-stage,source=map(Path,sys.argv[1:])
-manifest=json.loads((source/'manifest.json').read_bytes())
-expected={'manifest.json'}|{a['file'] for a in manifest['assets'] if not a.get('postscript')}
-assert len(expected)==10 and {p.name for p in (stage/'ui/sumi').iterdir()}==expected
-for name in expected:
-    path=stage/'ui/sumi'/name
-    assert path.is_file() and not path.is_symlink() and path.read_bytes()==(source/name).read_bytes()
-for asset in manifest['assets']:
-    if not asset.get('postscript'):
-        raw=(stage/'ui/sumi'/asset['file']).read_bytes()
-        assert len(raw)==asset['size'] and hashlib.sha256(raw).hexdigest()==asset['sha256']
-for path in stage.rglob('*'):
-    assert path.suffix.lower() not in {'.ttf','.otf','.woff','.woff2','.ttc','.otc'}, 'Large font payload in Sumi package'
-PYGATE
   local pkg="$out_dir/$triple.notemdpkg"
   zip_pkg "$stage" "$pkg"
   sign_pkg "$pkg"
-  cp "$manifest" "$out_dir/manifest.json"
+  cp "$stage/manifest.json" "$out_dir/manifest.json"
   local sha; sha="$(shasum -a 256 "$pkg" | awk '{print $1}')"
-  echo "[$id] $triple.notemdpkg sha256=$sha"
+  echo "[$id] $triple.notemdpkg sha256=$sha (from $tag $plugin_commit)"
   if [[ "$triple" == *-apple-darwin ]]; then
     echo "Apple Accepted proof: $native_dir/receipt.json"
   fi
-  rm -rf "$stage"; trap - RETURN
+  rm -rf "$work"; trap - RETURN
 }
 
 # ── trace-source: ui-only, single universal package (same shape as idea-spark)

@@ -302,6 +302,7 @@ def freeze(args):
     manifest_identity(json.loads(raw))
     require(args.arch == 'arm64', 'Sumi 0.1.10 currently declares only Apple Silicon; no Intel release evidence')
     files = {'manifest.json': sha(raw)}
+    require(args.plugin_ui and args.plugin_ui.is_dir(), 'Freeze requires --plugin-ui (the built UI of the frozen plugin)')
     for path in sorted(args.plugin_ui.rglob('*')):
         reject_font_path(path.relative_to(args.plugin_ui).as_posix())
         if path.is_file():
@@ -311,7 +312,11 @@ def freeze(args):
     require('ui/index.html' in files, 'Plugin UI entry missing')
     require(args.plugin_binary and args.plugin_binary.is_file(), 'Signed native binary required at freeze')
     files['bin/notemd-sumi'] = sha(args.plugin_binary.read_bytes())
-    sounds = helper(Path(__file__).with_name('verify-sounds.py')).validate(args.plugin_ui/'sounds')
+    # verify-sounds.py left note.md with the plugin; use the copy frozen in the commit.
+    with tempfile.TemporaryDirectory() as frozen:
+        checker = Path(frozen)/'verify-sounds.py'
+        checker.write_bytes(source(commit, 'scripts/sumi/verify-sounds.py'))
+        sounds = helper(checker).validate(args.plugin_ui/'sounds')
     for name in sounds:
         require((args.plugin_ui/'sounds'/name).read_bytes() == source(commit, 'plugins-src/write/resources/sounds/'+name), 'Sound resource differs from frozen source: '+name)
     font_files(args.plugin_ui/'sumi', source(commit, 'plugins-src/write/resources/sumi/manifest.json'))
@@ -489,7 +494,7 @@ def self_test():
             if mode=='valid':h.verify_archive_identity(archive_path,VERSION)
             else:rejects(lambda:h.verify_archive_identity(archive_path,VERSION))
         directory=directory/'fonts';directory.mkdir()
-        fm=json.loads((ROOT/'plugins-src/write/resources/sumi/manifest.json').read_bytes())
+        fm=json.loads(source('v'+VERSION, 'plugins-src/write/resources/sumi/manifest.json'))
         for asset in fm['assets']:
             asset.update(size=7,sha256=sha(b'fixture'))
         encoded=json.dumps(fm).encode();(directory/'manifest.json').write_bytes(encoded)
@@ -602,7 +607,7 @@ def main():
     p.add_argument('--expected-team-id',default='T5G56DH47L')
     p.add_argument('--expected-plugin-sha256')
     p.add_argument('--dist',type=Path,default=ROOT/'dist')
-    p.add_argument('--plugin-ui',type=Path,default=ROOT/'plugins-src/write/dist')
+    p.add_argument('--plugin-ui',type=Path,help='Built UI of the frozen plugin (required for --freeze-inputs)')
     p.add_argument('--candidate-helper',type=Path,default=Path(__file__).with_name('artifact_checks.py'))
     p.add_argument('--output',type=Path)
     args=p.parse_args();report={'ok':False,'checked_at':datetime.now(timezone.utc).isoformat()}

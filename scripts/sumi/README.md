@@ -80,9 +80,18 @@ node scripts/sumi/sample-process.mjs 123,456 60 /tmp/sumi-memory.json
 5. 远端可见 p95≤300ms 必须附真实 RTT≤100ms 证据；10万热打开目标≤500ms；停止输入后 MD/meta 通常≤1秒，并验证关闭 flush。现有算法/队列基准不能代替这些完整 UI 测量。
 6. 汇总脚本始终将 `physical_input_to_frame_gate` 与 `host_memory_gate` 标为 `NOT_MEASURED`，不会因为程序化数字好看而自动判绿。发布验收仍需主代理补充实机证据。
 
+## 插件源码位置:`SUMIWRITE_DIR`
+
+玄霜写作插件(`notemd.sumi`)的源码、字体目录 `resources/sumi/manifest.json` 与音效都在 sumiwrite 的 `apps/notemd-plugin/`,note.md 不再保留副本。note.md 里所有需要这些文件的脚本统一读环境变量 `SUMIWRITE_DIR`,默认是 note.md 旁边的 `../sumiwrite`;目录不存在时报“需要 sumiwrite 检出,设置 SUMIWRITE_DIR”并非零退出,不静默跳过。读它的有:`scripts/prepare-sumi-font.py`(因而 `pnpm build` 与 `scripts/release.sh` 也需要这份检出)、`scripts/dev-install-plugin.sh sumi`、`scripts/release-plugins.sh sumi`、`acceptance/build.sh` 与 `acceptance/prepare.py`。两个原生探针不读环境变量,由调用者在字体目录参数后面传字体目录文件路径:`focus-probe <截图> <字体目录> <manifest.json>`、`focus-return-probe <字体目录> <manifest.json> [截图]`。
+
+插件由 sumiwrite 的 `apps/notemd-plugin/scripts/build-artifact.sh --target <triple> --out <目录> [--debug]` 构建,产出未签名的 `stage/` 与 `checklist.json`;note.md 只负责安装、签名、公证、打包与上架。
+
+- 开发安装:`SUMIWRITE_DIR=~/git/sumiwrite bash scripts/dev-install-plugin.sh sumi`(默认 debug,`--release` 构建 release),把 `stage/` 原样拷进安装目录,再用 `verify-stage.py --verify-checklist` 核对安装结果。
+- 发版:`scripts/release-plugins.sh sumi` 要求 `git -C $SUMIWRITE_DIR describe --exact-match --tags` 正好是 `notemd-plugin-v<manifest 版本>`,且 `git status --porcelain` 为空;否则拒绝。之后核对清单 `source_commit` 等于 sumiwrite `HEAD`、`verify-stage.py --verify-checklist` 通过,macOS 目标再对 `stage/bin/notemd-sumi` 跑 `native-release.py --checklist`(清单的 `source_tag`、`source_commit` 与 `files` 写进 `state.json`/`receipt.json`),把签好的二进制换回 `stage/bin/` 后打包签名。`SUMI_RELEASE_STOP_BEFORE_SIGN=1` 在清单核对通过后立即退出,用于不签名的演练。
+
 ## 内核来源与本地联调
 
-内核 `write-core` 与 `sumi-protocol` 来自 sumiwrite 仓库的 `core-v0.1.0`(https://github.com/wizlijun/sumiwrite),三份 `Cargo.lock` 钉住该 tag 与提交。要在本地同时改两边时,把 sumiwrite 检出在 note.md 旁边(`../sumiwrite`),在要构建的清单里临时加上下面这段,**不要提交**:
+内核 `write-core` 与 `sumi-protocol` 来自 sumiwrite 仓库的 `core-v0.1.0`(https://github.com/wizlijun/sumiwrite),`src-tauri/Cargo.lock` 与 `scripts/sumi/native/Cargo.lock` 钉住该 tag 与提交。要在本地同时改两边时,把 sumiwrite 检出在 note.md 旁边(`../sumiwrite`),在要构建的清单里临时加上下面这段,**不要提交**:
 
 ```toml
 [patch."https://github.com/wizlijun/sumiwrite"]

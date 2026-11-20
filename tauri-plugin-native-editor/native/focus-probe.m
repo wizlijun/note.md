@@ -539,8 +539,11 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     }
     [window makeFirstResponder:text];
     if(argc>2){
+        // argv[2] font directory, argv[3] font catalog: the caller passes
+        // $SUMIWRITE_DIR/apps/notemd-plugin/resources/sumi/manifest.json.
+        require(argc>3,@"font matrix needs the font catalog path after the font directory");
         NSString *fontRoot=[NSString stringWithUTF8String:argv[2]];
-        NSData *manifestData=[NSData dataWithContentsOfFile:@"plugins-src/write/resources/sumi/manifest.json"];
+        NSData *manifestData=[NSData dataWithContentsOfFile:[NSString stringWithUTF8String:argv[3]]];
         NSDictionary *manifest=[NSJSONSerialization JSONObjectWithData:manifestData options:0 error:nil];require(manifest!=nil,@"font matrix uses production manifest");
         for(NSDictionary *asset in manifest[@"assets"]){if(!asset[@"postscript"])continue;char *error=NULL;
             NSString *fontPath=[fontRoot stringByAppendingPathComponent:asset[@"file"]];require(sumi_editor_register_font(fontPath.UTF8String,[asset[@"postscript"] UTF8String],&error)==0,@"production font registers with its exact PostScript name");free(error);

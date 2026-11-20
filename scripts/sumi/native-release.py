@@ -8,7 +8,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 IDENTIFIER = 'net.notemd.sumi.backend'
 TARGETS = {'aarch64-apple-darwin': 'arm64', 'x86_64-apple-darwin': 'x86_64'}
-SOURCE_DIRS = ['plugins-src/write/backend', 'notemd-plugin-sdk', 'plugin-protocol', 'plugins-src/write/resources/sumi', 'plugins-src/write/resources/sounds', 'scripts/sumi/verify-sounds.py', 'scripts/sumi/native-release.py', 'scripts/release-plugins.sh', 'plugins-src/write/manifest.v2.json', 'plugins-src/write/package.json', 'plugins-src/write/vite.config.ts']
+# The plugin source itself lives in sumiwrite and is bound through --checklist;
+# these are the note.md-side inputs that shape the signed release.
+SOURCE_DIRS = ['notemd-plugin-sdk', 'plugin-protocol', 'scripts/sumi/native-release.py', 'scripts/release-plugins.sh']
 
 
 def require(ok, message):
@@ -27,7 +29,7 @@ def run(command, timeout=120):
 
 def frozen_sources(commit):
     paths = subprocess.check_output(['git', '-C', str(ROOT), 'ls-tree', '-r', '--name-only', commit, '--', *SOURCE_DIRS], text=True).splitlines()
-    require(paths and 'plugins-src/write/backend/src/main.rs' in paths, 'Frozen backend main missing')
+    require(paths and 'scripts/sumi/native-release.py' in paths, 'Frozen release helper missing')
     return {p: sha(subprocess.check_output(['git', '-C', str(ROOT), 'show', commit+':'+p])) for p in paths}
 
 
@@ -69,6 +71,15 @@ def assessment(binary):
             'scope': 'Raw CLI assessment is recorded verbatim; nonzero is not converted to success. Apple Accepted/CDHash binding is independently required; actual isolated process acceptance remains required.'}
 
 
+def plugin_checklist(path, input_sha):
+    # sumiwrite build-artifact.sh checklist: which plugin source produced the binary.
+    checklist = json.loads(Path(path).read_text())
+    require(re.fullmatch('[0-9a-f]{40}', checklist.get('source_commit') or ''), 'Checklist source_commit required')
+    files = checklist.get('files')
+    require(isinstance(files, dict) and files.get('bin/notemd-sumi') == input_sha, 'Checklist does not describe this unsigned binary')
+    return {'source_tag': checklist.get('source_tag', ''), 'source_commit': checklist['source_commit'], 'files': files}
+
+
 def execute(args):
     require(args.target in TARGETS, 'Unsupported native target')
     require(re.fullmatch('[0-9a-f]{40}', args.source or ''), 'Exact frozen source commit required')
@@ -87,6 +98,7 @@ def execute(args):
         require((ROOT/path).is_file() and sha((ROOT/path).read_bytes()) == digest, 'Working source differs from frozen source: '+path)
     original = args.binary.resolve(strict=True)
     input_sha = sha(original.read_bytes())
+    checklist = plugin_checklist(args.checklist, input_sha)
     require(not any(p.is_symlink() for p in [args.output_dir, *args.output_dir.parents]), 'Unsafe native evidence directory')
     out = args.output_dir.resolve()
     state_path = out/'state.json'
@@ -94,7 +106,7 @@ def execute(args):
     archive = out/'notemd-sumi-notary.zip'
     if state_path.exists():
         state = json.loads(state_path.read_text())
-        require(state['input_sha256'] == input_sha and state['source_sha256'] == sources and state['team'] == team and state['target'] == args.target, 'Existing native evidence belongs to different inputs; do not overwrite')
+        require(state['input_sha256'] == input_sha and state['source_sha256'] == sources and state['team'] == team and state['target'] == args.target and state.get('plugin_checklist') == checklist, 'Existing native evidence belongs to different inputs; do not overwrite')
         require(inspect_binary(binary, TARGETS[args.target], team) == state['binary'], 'Signed binary changed before resume')
         require(sha(archive.read_bytes()) == state['archive_sha256'], 'Notary archive changed before resume')
     else:
@@ -106,7 +118,7 @@ def execute(args):
         with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as z:
             z.write(binary, 'notemd-sumi')
         state = {'schema':1, 'source_commit':args.source, 'source_sha256':sources, 'team':team, 'target':args.target,
-                 'input_sha256':input_sha, 'binary':inspected, 'archive_sha256':sha(archive.read_bytes()), 'submission_id':None}
+                 'input_sha256':input_sha, 'plugin_checklist':checklist, 'binary':inspected, 'archive_sha256':sha(archive.read_bytes()), 'submission_id':None}
         state_path.write_text(json.dumps(state,indent=2)+'\n')
     if not state['submission_id']:
         # A failed/ambiguous submit must never silently be repeated. Preserve an
@@ -151,11 +163,11 @@ def self_test():
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--self-test',action='store_true');p.add_argument('--sign-and-notarize',action='store_true')
-    p.add_argument('--binary',type=Path);p.add_argument('--target',choices=TARGETS);p.add_argument('--source');p.add_argument('--output-dir',type=Path)
+    p.add_argument('--binary',type=Path);p.add_argument('--target',choices=TARGETS);p.add_argument('--source');p.add_argument('--output-dir',type=Path);p.add_argument('--checklist',type=Path)
     a=p.parse_args()
     try:
         if a.self_test:print(json.dumps(self_test()));return 0
-        require(a.sign_and_notarize and a.binary and a.target and a.source and a.output_dir, 'Explicit --sign-and-notarize and all frozen inputs required')
+        require(a.sign_and_notarize and a.binary and a.target and a.source and a.output_dir and a.checklist, 'Explicit --sign-and-notarize and all frozen inputs required')
         execute(a);return 0
     except Exception as e:
         # Timeout exceptions contain command arguments. Never print repr(e).

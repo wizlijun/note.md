@@ -1,0 +1,350 @@
+//! Host durable-proxy harness. It compiles this crate's own `durability.rs` FIFO
+//! and journal a second time against a fault-injecting typed RPC adapter
+//! (`service` below), backed by the real plugin worker from `notemd_sumi_backend`.
+//! It tests the host proxy, so it lives in note.md; it came from the Sumi Write
+//! plugin backend (sumiwrite `2f5a320:apps/notemd-plugin/backend/src/lib.rs`).
+//! The crash tests re-exec this test binary with an exact test-name filter.
+mod service {
+    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    use serde::{de::DeserializeOwned};
+    use serde_json::Value;
+    #[derive(Clone)]
+    pub struct Backend {
+        pub worker: notemd_sumi_backend::durability::Durability,
+        pub lose_committed_reply: Arc<AtomicBool>,
+        pub unavailable: Arc<AtomicBool>,
+        pub corrupt_import_receipt: Arc<AtomicBool>,
+    }
+    impl Backend {
+        pub async fn call<T: DeserializeOwned>(&self, method: &str, params: Value) -> Result<T, String> {
+            assert_eq!(method, "durability");
+            if self.unavailable.load(Ordering::SeqCst) { return Err("test transport unavailable".into()); }
+            let request: sumi_protocol::durability::Request = serde_json::from_value(params).map_err(|e| e.to_string())?;
+            let commit = matches!(request, sumi_protocol::durability::Request::CommitLocal(_) | sumi_protocol::durability::Request::CommitRemote {..});
+            let import = matches!(request, sumi_protocol::durability::Request::ImportLocal { .. });
+            let mut result = notemd_sumi_backend::durability_rpc::dispatch(&self.worker, request).await?;
+            if import && self.corrupt_import_receipt.swap(false, Ordering::SeqCst) {
+                result["receipt"]["op_id"] = Value::String("wrong-operation".into());
+            }
+            if commit && self.lose_committed_reply.swap(false, Ordering::SeqCst) {
+                return Err("test committed reply lost".into());
+            }
+            serde_json::from_value(result).map_err(|e| e.to_string())
+        }
+    }
+}
+#[allow(dead_code, unused_imports)]
+mod durability {
+    include!("durability.rs");
+}
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::time::Duration;
+use tokio::sync::mpsc;
+use durability::{Create, LocalEdit, DurableEvent};
+async fn fixture() -> (tempfile::TempDir, service::Backend, String, write_core::Document) {
+    let temp = tempfile::tempdir().unwrap();
+    let worker = notemd_sumi_backend::durability::Durability::open(temp.path().into(), temp.path().join("state.sqlite3"), |_| {}).await.unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    let doc = write_core::Document::new(&id,1,7).unwrap();
+    worker.create(Create { page_id:id.clone(), epoch:1, full_state:doc.encode_full(), revision:0, after_id:None,
+        first_write_date:None, frontmatter:None, preserved_pair:None }).await.unwrap();
+    let backend = service::Backend { worker, lose_committed_reply:Arc::new(AtomicBool::new(false)), unavailable:Arc::new(AtomicBool::new(false)),corrupt_import_receipt:Arc::new(AtomicBool::new(false)) };
+    (temp,backend,id,doc)
+}
+fn local(id: &str, doc: &mut write_core::Document, text: &str) -> LocalEdit {
+    let update = doc.replace(doc.revision(),doc.body().encode_utf16().count() as u32,0,text,99).unwrap();
+    LocalEdit { page_id:id.into(), epoch:1, generation:0, revision:doc.revision(), op_id:uuid::Uuid::new_v4().to_string(),update,first_write_date:Some("2026-11-08".into()) }
+}
+#[tokio::test]
+async fn lost_commit_reply_fails_barrier_then_replays_same_operation() {
+    let (_temp,backend,id,mut doc) = fixture().await;
+    backend.lose_committed_reply.store(true, Ordering::SeqCst);
+    let (events,mut received) = mpsc::unbounded_channel();
+    let proxy = durability::Durability::from_backend(backend.clone(), _temp.path().join("host-journal.sqlite3"), move |event| { let _=events.send(event); }).unwrap();
+    let permit = proxy.try_reserve_edit().unwrap();
+    let edit = local(&id,&mut doc,"只写一次");
+    permit.enqueue_local(edit.clone()).unwrap();
+    assert!(matches!(received.recv().await.unwrap(),DurableEvent::Failed { .. }));
+    assert!(tokio::time::timeout(Duration::from_millis(200), proxy.flush()).await.unwrap().is_err());
+    assert_eq!(backend.worker.load(id.clone()).await.unwrap().revision,1);
+    assert!(matches!(tokio::time::timeout(Duration::from_secs(2),received.recv()).await.unwrap().unwrap(), DurableEvent::Committed { revision:1,.. }));
+    proxy.flush().await.unwrap();
+    assert!(proxy.load(id).await.unwrap().raw_markdown.ends_with("只写一次"));
+    assert_eq!(backend.worker.outbox().await.unwrap().iter().filter(|v|v.update.op_id==edit.op_id).count(),1);
+}
+#[tokio::test]
+async fn legacy_local_echo_journal_replays_before_appearance_preferences() {
+    use sumi_protocol::durability::Request;
+    let (temp, backend, id, mut doc) = fixture().await;
+    let local = local(&id, &mut doc, "cloud echo must not block appearance");
+    let original = backend.worker.commit_local(local.clone()).await.unwrap();
+    backend.worker.flush().await.unwrap();
+    backend.worker.ack(local.op_id.clone()).await.unwrap();
+    drop(backend);
+    // Simulate the already-shipped schema: the local receipt survives ACK,
+    // while the original host accepted the returned cloud echo at revision+1.
+    let database = rusqlite::Connection::open(temp.path().join("state.sqlite3")).unwrap();
+    database.execute("DELETE FROM sumi_local_update_identity", []).unwrap();
+    drop(database);
+    let incoming = write_core::storage::PendingUpdate { op_id:local.op_id.clone(), page_id:id.clone(), epoch:1, update:local.update.clone() };
+    let request = Request::CommitRemote { incoming:incoming.clone(), generation:0, revision:local.revision+1 };
+    let mut echoed = local.clone(); echoed.revision += 1; echoed.first_write_date = None;
+    let receipt = sumi_protocol::durability::edit_receipt(&echoed, true, None).unwrap();
+    let payload = serde_json::to_vec(&request).unwrap();
+    let journal_path = temp.path().join("host-journal.sqlite3");
+    let journal = rusqlite::Connection::open(&journal_path).unwrap();
+    journal.execute_batch("CREATE TABLE host_input_journal(sequence INTEGER PRIMARY KEY AUTOINCREMENT,op_id TEXT NOT NULL UNIQUE,payload BLOB NOT NULL,payload_sha256 TEXT NOT NULL,receipt BLOB NOT NULL); PRAGMA user_version=1;").unwrap();
+    journal.execute("INSERT INTO host_input_journal(op_id,payload,payload_sha256,receipt) VALUES(?1,?2,?3,?4)",
+        rusqlite::params![local.op_id, payload, write_core::storage::sha256(&payload), serde_json::to_vec(&receipt).unwrap()]).unwrap();
+    drop(journal);
+    let worker = notemd_sumi_backend::durability::Durability::open(temp.path().into(), temp.path().join("state.sqlite3"), |_| {}).await.unwrap();
+    let backend = service::Backend { worker:worker.clone(), lose_committed_reply:Arc::new(AtomicBool::new(false)),
+        unavailable:Arc::new(AtomicBool::new(false)), corrupt_import_receipt:Arc::new(AtomicBool::new(false)) };
+    let proxy = durability::Durability::from_backend(backend, journal_path.clone(), |_| {}).unwrap();
+    let appearance = serde_json::json!({"fontFamily":"Sumi Zhaohua","fontSize":50});
+    tokio::time::timeout(Duration::from_secs(2), proxy.set_preferences("appearance".into(), appearance.clone())).await.unwrap().unwrap();
+    assert_eq!(proxy.preferences("appearance".into()).await.unwrap(), Some(appearance));
+    let loaded = proxy.load(id).await.unwrap();
+    assert_eq!(loaded.revision, echoed.revision);
+    assert!(loaded.raw_markdown.ends_with("cloud echo must not block appearance"));
+    assert_eq!(worker.commit_local(local).await.unwrap(), original);
+    assert_eq!(worker.commit_remote(incoming, 0, echoed.revision).await.unwrap(), receipt);
+    let journal = rusqlite::Connection::open(journal_path).unwrap();
+    assert_eq!(journal.query_row("SELECT COUNT(*) FROM host_input_journal", [], |r| r.get::<_,i64>(0)).unwrap(), 0);
+}
+
+#[tokio::test]
+async fn permits_bound_pending_edits_and_reserve_before_native_mutation() {
+    let (_temp,backend,_id,_doc) = fixture().await;
+    let proxy=durability::Durability::from_backend(backend, _temp.path().join("host-journal.sqlite3"), |_|{}).unwrap();
+    let permits=(0..256).map(|_|proxy.try_reserve_edit().unwrap()).collect::<Vec<_>>();
+    assert!(proxy.try_reserve_edit().is_err());
+    drop(permits);
+    assert!(proxy.try_reserve_edit().is_ok());
+}
+#[tokio::test]
+async fn unavailable_worker_retains_local_remote_order_and_flush_is_prompt() {
+    let (_temp,backend,id,mut doc)=fixture().await;
+    backend.unavailable.store(true,Ordering::SeqCst);
+    let (events,mut received)=mpsc::unbounded_channel();
+    let proxy=durability::Durability::from_backend(backend.clone(), _temp.path().join("host-journal.sqlite3"), move|event|{let _=events.send(event);}).unwrap();
+    let first=proxy.try_reserve_edit().unwrap();
+    first.enqueue_local(local(&id,&mut doc,"A")).unwrap();
+    assert!(matches!(received.recv().await.unwrap(),DurableEvent::Failed {..}));
+    let second=proxy.try_reserve_edit().unwrap();
+    let remote=local(&id,&mut doc,"中");
+    let remote_result=second.enqueue_remote(write_core::storage::PendingUpdate {op_id:remote.op_id,page_id:remote.page_id,epoch:remote.epoch,update:remote.update},0,remote.revision).unwrap();
+    let third=proxy.try_reserve_edit().unwrap();
+    third.enqueue_local(local(&id,&mut doc,"B")).unwrap();
+    assert!(tokio::time::timeout(Duration::from_millis(200),proxy.flush()).await.unwrap().is_err());
+    backend.unavailable.store(false,Ordering::SeqCst);
+    let loaded=tokio::time::timeout(Duration::from_secs(2),remote_result).await.unwrap().unwrap().unwrap();
+    assert_eq!(loaded.revision,2);
+    proxy.flush().await.unwrap();
+    let final_doc=proxy.load(id).await.unwrap();
+    assert_eq!(final_doc.revision,3);
+    assert!(final_doc.raw_markdown.ends_with("A中B"));
+}
+#[tokio::test]
+async fn continuous_polling_does_not_postpone_the_retry_deadline() {
+    let (_temp,backend,id,mut doc)=fixture().await;
+    backend.lose_committed_reply.store(true,Ordering::SeqCst);
+    let (events,mut received)=mpsc::unbounded_channel();
+    let proxy=durability::Durability::from_backend(backend, _temp.path().join("host-journal.sqlite3"), move|event|{let _=events.send(event);}).unwrap();
+    proxy.try_reserve_edit().unwrap().enqueue_local(local(&id,&mut doc,"poll")).unwrap();
+    assert!(matches!(received.recv().await.unwrap(),DurableEvent::Failed{..}));
+    tokio::time::timeout(Duration::from_millis(1500),async {
+        loop {
+            tokio::select! {
+                event=received.recv()=>if matches!(event,Some(DurableEvent::Committed{..})){break;},
+                _=tokio::time::sleep(Duration::from_millis(20))=>{let _=proxy.list().await;}
+            }
+        }
+    }).await.expect("frequent reads postponed the fixed retry deadline");
+    proxy.flush().await.unwrap();
+}
+#[tokio::test]
+async fn reserved_import_rejects_wrong_receipt_and_replays_without_duplicate_apply() {
+    let (temp,backend,id,mut doc)=fixture().await;
+    backend.worker.commit_local(local(&id,&mut doc,"seed")).await.unwrap();
+    backend.worker.flush().await.unwrap();
+    let baseline=backend.worker.read_baseline(id.clone()).await.unwrap().unwrap();
+    let mut observed=baseline.pair;
+    observed.markdown=observed.markdown.replace("seed","seed imported");
+    let (md,meta)=write_core::projection::paths(temp.path(),&baseline.filename).unwrap();
+    std::fs::write(&md,&observed.markdown).unwrap();std::fs::write(&meta,&observed.metadata).unwrap();
+    backend.corrupt_import_receipt.store(true,Ordering::SeqCst);
+    let (events,mut received)=mpsc::unbounded_channel();
+    let proxy=durability::Durability::from_backend(backend.clone(), temp.path().join("host-journal.sqlite3"), move|event|{let _=events.send(event);}).unwrap();
+    let permit=proxy.try_reserve_edit().unwrap();
+    let edit=local(&id,&mut doc," imported");
+    let op_id=edit.op_id.clone();
+    let receiver=permit.enqueue_import(edit,observed).unwrap();
+    assert!(receiver.await.unwrap().unwrap_err().contains("回执"));
+    assert!(matches!(received.recv().await.unwrap(),DurableEvent::Failed{..}));
+    assert!(matches!(tokio::time::timeout(Duration::from_secs(2),received.recv()).await.unwrap().unwrap(),DurableEvent::Committed{revision:2,..}));
+    proxy.flush().await.unwrap();
+    let loaded=proxy.load(id).await.unwrap();assert_eq!(loaded.revision,2);assert!(loaded.raw_markdown.ends_with("seed imported"));
+    assert_eq!(backend.worker.outbox().await.unwrap().iter().filter(|entry|entry.update.op_id==op_id).count(),1);
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ImportCrashManifest {
+    edit: LocalEdit,
+    observed: write_core::storage::FilePair,
+    expected: write_core::storage::FilePair,
+}
+#[tokio::test]
+#[ignore = "only launched by the isolated journaled-import crash test"]
+async fn journaled_import_crash_child() {
+    let directory = std::path::PathBuf::from(std::env::var_os("SUMI_IMPORT_CRASH_DIRECTORY").unwrap());
+    let worker = notemd_sumi_backend::durability::Durability::open(directory.clone(), directory.join("state.sqlite3"), |_| {}).await.unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    let mut doc = write_core::Document::new(&id, 1, 7).unwrap();
+    doc.replace(0, 0, 0, "seed", 99).unwrap();
+    worker.create(Create { page_id:id.clone(), epoch:1, full_state:doc.encode_full(), revision:1,
+        after_id:None, first_write_date:Some("2026-11-09".into()), frontmatter:None, preserved_pair:None }).await.unwrap();
+    let baseline = worker.read_baseline(id.clone()).await.unwrap().unwrap();
+    let mut observed = baseline.pair.clone();
+    observed.markdown = observed.markdown.replace("seed", "seed imported").replacen("type:", "custom: captured\ntype:", 1);
+    let mut sidecar: serde_json::Value = serde_json::from_str(&observed.metadata).unwrap();
+    sidecar["custom"] = serde_json::json!("captured-extension");
+    observed.metadata = sidecar.to_string();
+    let (md, meta) = write_core::projection::paths(&directory, &baseline.filename).unwrap();
+    std::fs::write(&md, &observed.markdown).unwrap();
+    std::fs::write(&meta, &observed.metadata).unwrap();
+    let update = match write_core::import::import_external(&mut doc, &baseline.full_state, "seed imported", 300).unwrap() {
+        write_core::import::ImportOutcome::Applied { update } => update,
+        _ => panic!("expected accepted import"),
+    };
+    let edit = LocalEdit { page_id:id, epoch:1, generation:0, revision:doc.revision(),
+        op_id:uuid::Uuid::new_v4().to_string(), update, first_write_date:Some("2026-11-09".into()) };
+    let expected = write_core::storage::serialize_pair(&doc.snapshot().unwrap(), None, None).unwrap();
+    let backend = service::Backend { worker, lose_committed_reply:Arc::new(AtomicBool::new(false)),
+        unavailable:Arc::new(AtomicBool::new(true)), corrupt_import_receipt:Arc::new(AtomicBool::new(false)) };
+    let proxy = durability::Durability::from_backend(backend, directory.join("host-journal.sqlite3"), |_| {}).unwrap();
+    let received = proxy.try_reserve_edit().unwrap().enqueue_import(edit.clone(), observed.clone()).unwrap();
+    assert!(received.await.unwrap().unwrap_err().contains("transport unavailable"));
+    // The operation is already accepted into the durable host journal.
+    // A different writer changes both files before backend replay.
+    std::fs::write(&md, baseline.pair.markdown.replace("seed", "newer external draft")).unwrap();
+    std::fs::write(&meta, b"newer external metadata").unwrap();
+    std::fs::write(directory.join("accepted.tmp"), serde_json::to_vec(&ImportCrashManifest { edit, observed, expected }).unwrap()).unwrap();
+    std::fs::rename(directory.join("accepted.tmp"), directory.join("accepted.json")).unwrap();
+    std::future::pending::<()>().await;
+}
+#[tokio::test]
+async fn journaled_import_survives_host_crash_and_new_external_files_without_blocking_load() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["sumi::backend_proxy_tests::journaled_import_crash_child", "--exact", "--ignored", "--nocapture", "--test-threads=1"])
+        .env("SUMI_IMPORT_CRASH_DIRECTORY", temp.path()).stdout(std::process::Stdio::null()).spawn().unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    while !temp.path().join("accepted.json").exists() {
+        if child.try_wait().unwrap().is_some() { panic!("import crash child exited before journaling"); }
+        if std::time::Instant::now() >= deadline { let _=child.kill(); let _=child.wait(); panic!("import child timed out"); }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    child.kill().unwrap(); assert!(!child.wait().unwrap().success());
+    let manifest: ImportCrashManifest = serde_json::from_slice(&std::fs::read(temp.path().join("accepted.json")).unwrap()).unwrap();
+    let worker = notemd_sumi_backend::durability::Durability::open(temp.path().into(), temp.path().join("state.sqlite3"), |_| {}).await.unwrap();
+    let baseline = worker.read_baseline(manifest.edit.page_id.clone()).await.unwrap().unwrap();
+    let (md, meta) = write_core::projection::paths(temp.path(), &baseline.filename).unwrap();
+    let external_md = std::fs::read(&md).unwrap(); let external_meta = std::fs::read(&meta).unwrap();
+    let backend = service::Backend { worker:worker.clone(), lose_committed_reply:Arc::new(AtomicBool::new(false)),
+        unavailable:Arc::new(AtomicBool::new(false)), corrupt_import_receipt:Arc::new(AtomicBool::new(false)) };
+    let journal_path = temp.path().join("host-journal.sqlite3");
+    let proxy = durability::Durability::from_backend(backend, journal_path.clone(), |_| {}).unwrap();
+    // The first normal load automatically follows replay; no manual repair.
+    let loaded = tokio::time::timeout(Duration::from_secs(3), proxy.load(manifest.edit.page_id.clone())).await.unwrap().unwrap();
+    assert_eq!(loaded.revision, manifest.edit.revision);
+    assert!(loaded.raw_markdown.ends_with("seed imported"));
+    assert!(loaded.raw_markdown.contains("custom: captured"));
+    assert_eq!(loaded.sidecar.extra["custom"], serde_json::json!("captured-extension"));
+    let expected = write_core::storage::parse_pair(&manifest.expected.markdown, &manifest.expected.metadata).unwrap();
+    assert_eq!(serde_json::to_value(&loaded.sidecar.lines).unwrap(), serde_json::to_value(&expected.sidecar.lines).unwrap());
+    let observed = proxy.observe_page(manifest.edit.page_id.clone()).await.unwrap();
+    assert!(matches!(observed.files, sumi_protocol::durability::ObservedFiles::External { .. }));
+    assert_eq!(std::fs::read(&md).unwrap(), external_md); assert_eq!(std::fs::read(&meta).unwrap(), external_meta);
+    let receipt = sumi_protocol::durability::edit_receipt(&manifest.edit, false, Some(&manifest.observed)).unwrap();
+    let replay = worker.commit_import(manifest.edit.clone(), manifest.observed.clone()).await.unwrap();
+    assert_eq!(replay.receipt, receipt);
+    assert_eq!(worker.outbox().await.unwrap().iter().filter(|item| item.update.op_id == manifest.edit.op_id).count(), 1);
+    let database = rusqlite::Connection::open(journal_path).unwrap();
+    let count: i64 = database.query_row("SELECT COUNT(*) FROM host_input_journal", [], |row| row.get(0)).unwrap();
+    assert_eq!(count, 0, "exact original import receipt must release the journal head");
+    // Ordinary continued typing also remains durable and cannot cover the external draft.
+    let mut current = write_core::Document::restore(&manifest.edit.page_id, 1, 987, &loaded.full_state, loaded.revision).unwrap();
+    proxy.enqueue_local(local(&manifest.edit.page_id, &mut current, " continued")).unwrap();
+    assert!(proxy.load(manifest.edit.page_id.clone()).await.unwrap().raw_markdown.ends_with("seed imported continued"));
+    assert!(proxy.flush().await.is_err(), "foreign projection remains blocked independently of durability");
+    assert!(proxy.load(manifest.edit.page_id).await.unwrap().raw_markdown.ends_with("seed imported continued"));
+    assert_eq!(std::fs::read(md).unwrap(), external_md); assert_eq!(std::fs::read(meta).unwrap(), external_meta);
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct CrashManifest { page: String, op_ids: Vec<String>, body: String }
+#[tokio::test]
+#[ignore = "only launched by isolated host crash recovery tests"]
+async fn durable_proxy_crash_child() {
+    let directory = std::path::PathBuf::from(std::env::var_os("SUMI_PROXY_CRASH_DIRECTORY").unwrap());
+    let after_commit = std::env::var("SUMI_PROXY_CRASH_AFTER_COMMIT").unwrap() == "1";
+    let worker = notemd_sumi_backend::durability::Durability::open(directory.clone(), directory.join("state.sqlite3"), |_| {}).await.unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    let mut doc = write_core::Document::new(&id, 1, 7).unwrap();
+    worker.create(Create { page_id:id.clone(), epoch:1, full_state:doc.encode_full(), revision:0,
+        after_id:None, first_write_date:None, frontmatter:None, preserved_pair:None }).await.unwrap();
+    let backend = service::Backend { worker, lose_committed_reply:Arc::new(AtomicBool::new(after_commit)),
+        unavailable:Arc::new(AtomicBool::new(!after_commit)), corrupt_import_receipt:Arc::new(AtomicBool::new(false)) };
+    let (events, mut received) = mpsc::unbounded_channel();
+    let proxy = durability::Durability::from_backend(backend, directory.join("host-journal.sqlite3"), move |event| { let _=events.send(event); }).unwrap();
+    let edit = local(&id, &mut doc, "宿主强制终止前的输入\n离线也必须保存。");
+    let mut op_ids = std::slice::from_ref(&edit.op_id).to_vec();
+    proxy.try_reserve_edit().unwrap().enqueue_local(edit).unwrap();
+    // A failure in after_commit mode proves the backend committed and its
+    // typed receipt was lost, while the host journal remains unacknowledged.
+    assert!(matches!(received.recv().await.unwrap(), DurableEvent::Failed { .. }));
+    if !after_commit {
+        let edit = local(&id, &mut doc, "还未发往后台的第二次输入。");
+        op_ids.push(edit.op_id.clone());
+        proxy.try_reserve_edit().unwrap().enqueue_local(edit).unwrap();
+    }
+    let manifest = CrashManifest { page:id, op_ids, body:doc.body() };
+    std::fs::write(directory.join("accepted.tmp"), serde_json::to_vec(&manifest).unwrap()).unwrap();
+    std::fs::rename(directory.join("accepted.tmp"), directory.join("accepted.json")).unwrap();
+    std::future::pending::<()>().await;
+}
+async fn kill_and_recover(after_commit: bool) {
+    let temp = tempfile::tempdir().unwrap();
+    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["sumi::backend_proxy_tests::durable_proxy_crash_child", "--exact", "--ignored", "--nocapture", "--test-threads=1"])
+        .env("SUMI_PROXY_CRASH_DIRECTORY", temp.path())
+        .env("SUMI_PROXY_CRASH_AFTER_COMMIT", if after_commit { "1" } else { "0" })
+        .stdout(std::process::Stdio::null()).spawn().unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(15);
+    while !temp.path().join("accepted.json").exists() {
+        if child.try_wait().unwrap().is_some() { panic!("host crash child exited before acceptance"); }
+        if std::time::Instant::now() >= deadline { let _=child.kill(); let _=child.wait(); panic!("host crash child timed out"); }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    child.kill().unwrap(); assert!(!child.wait().unwrap().success());
+    let manifest: CrashManifest = serde_json::from_slice(&std::fs::read(temp.path().join("accepted.json")).unwrap()).unwrap();
+    let worker = notemd_sumi_backend::durability::Durability::open(temp.path().into(), temp.path().join("state.sqlite3"), |_| {}).await.unwrap();
+    let backend = service::Backend { worker:worker.clone(), lose_committed_reply:Arc::new(AtomicBool::new(false)),
+        unavailable:Arc::new(AtomicBool::new(false)), corrupt_import_receipt:Arc::new(AtomicBool::new(false)) };
+    let journal_path = temp.path().join("host-journal.sqlite3");
+    let proxy = durability::Durability::from_backend(backend, journal_path.clone(), |_| {}).unwrap();
+    // No manual flush/recovery call: the first load must be behind replay.
+    let recovered = tokio::time::timeout(Duration::from_secs(10), proxy.load(manifest.page)).await.unwrap().unwrap();
+    assert_eq!(recovered.revision, manifest.op_ids.len() as u64);
+    assert!(recovered.raw_markdown.ends_with(&manifest.body));
+    let outbox = worker.outbox().await.unwrap();
+    for op_id in &manifest.op_ids { assert_eq!(outbox.iter().filter(|entry| &entry.update.op_id == op_id).count(), 1); }
+    let database = rusqlite::Connection::open(journal_path).unwrap();
+    let remaining: i64 = database.query_row("SELECT COUNT(*) FROM host_input_journal", [], |r| r.get(0)).unwrap();
+    assert_eq!(remaining, 0, "only exact backend durable receipts reclaim the journal");
+}
+#[tokio::test]
+async fn host_sigkill_before_backend_commit_recovers_accepted_input_on_first_load() { kill_and_recover(false).await; }
+#[tokio::test]
+async fn host_sigkill_after_backend_commit_before_ack_replays_exactly_once() { kill_and_recover(true).await; }

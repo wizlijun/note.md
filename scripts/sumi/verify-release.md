@@ -11,7 +11,7 @@ python3 scripts/sumi/verify-release.py --self-test
 python3 -m unittest discover -s scripts/sumi -p test_native_release.py
 python3 scripts/sumi/verify-release.py --freeze-inputs \
   --arch arm64 --expected-source FULL_COMMIT_SHA \
-  --dist dist --plugin-ui plugins-src/write/dist \
+  --dist dist --plugin-ui /absolute/frozen-plugin/dist \
   --plugin-binary /absolute/native-aarch64-apple-darwin/notemd-sumi \
   --output /absolute/release/frozen-sumi-inputs.json
 ```
@@ -43,11 +43,17 @@ python3 scripts/sumi/verify-release.py \
 
 插件`ui/sumi/`必须精确含manifest和9份许可/来源文件，目录/旧资源/缺失/篡改都拒绝；六组选项、七个字体精确PS、size/SHA/HTTPS和Zhuque ZIP约束继续验证。后台解包后必须与Apple Accepted归档内CDHash/CPU绑定的二进制相同，Developer ID、预期Team/identifier、runtime、secure timestamp和strict签名都必需；公证归档SHA、Apple jobId和最终backend源码摘要同时核对。
 
+## 适用范围与插件源码位置
+
+本验证器冻结在宿主 `6.1111.1`(`VERSION`),它读取的 `plugins-src/write/...` 路径都是该冻结提交里的历史源码,经 `git show <提交>:<路径>` 读取,不读工作区;插件迁出后这些路径只存在于历史中。`--freeze-inputs` 必须显式给 `--plugin-ui`;`verify-sounds.py` 也从冻结提交里取。
+
+插件此后的源码在 sumiwrite 的 `apps/notemd-plugin/`,脚本经 `SUMIWRITE_DIR`(默认 `../sumiwrite`)找到它,缺目录时报“需要 sumiwrite 检出,设置 SUMIWRITE_DIR”。发版要求该检出正好在 tag `notemd-plugin-v<manifest 版本>` 上且 `git status --porcelain` 为空,详见 `README.md`「插件源码位置」。
+
 ## Sumi独立后台公证流程
 
-`scripts/release-plugins.sh sumi`只改变Sumi分支：默认`SUMI_RELEASE_TARGET=aarch64-apple-darwin`，使用既有Cargo/Vite/zip/minisign流程，但必须显式提供匹配Team的`APPLE_SIGNING_IDENTITY`和公证凭据（`SUMI_NOTARY_PROFILE`，或既有Apple环境变量）。不会打印凭据，也不执行市场上传。其它插件流程不变。
+`scripts/release-plugins.sh sumi`只改变Sumi分支：默认`SUMI_RELEASE_TARGET=aarch64-apple-darwin`，在`$SUMIWRITE_DIR`跑`build-artifact.sh`得到未签名stage与清单，核对后沿用既有zip/minisign流程，但必须显式提供匹配Team的`APPLE_SIGNING_IDENTITY`和公证凭据（`SUMI_NOTARY_PROFILE`，或既有Apple环境变量）。不会打印凭据，也不执行市场上传。其它插件流程不变。
 
-`scripts/sumi/native-release.py --sign-and-notarize`在独立证据目录复制并签名后台，上传包含签后后台的ZIP，保存submission ID后只等待同一个任务。模糊提交失败留attempt标记并停止，禁止自动重提；等待超时保留state可续跑；源/二进制/归档变化拒绝续用。只有Apple log中Accepted、statusCode0、归档SHA和ticket CDHash/CPU全部相符才生成receipt。裸CLI/ZIP没有App式stapling步骤，不伪造通过结果。
+`scripts/sumi/native-release.py --sign-and-notarize --checklist <清单>`先核对清单里`bin/notemd-sumi`的摘要等于待签二进制，把清单的`source_tag`、`source_commit`与`files`写进`state.json`和`receipt.json`，再在独立证据目录复制并签名后台，上传包含签后后台的ZIP，保存submission ID后只等待同一个任务。模糊提交失败留attempt标记并停止，禁止自动重提；等待超时保留state可续跑；源/二进制/归档变化拒绝续用。只有Apple log中Accepted、statusCode0、归档SHA和ticket CDHash/CPU全部相符才生成receipt。裸CLI/ZIP没有App式stapling步骤，不伪造通过结果。
 
 spctl对裸CLI的返回值和输出原样记录。正式验证只允许两种结果：明确`Notarized Developer ID`；或系统明确报告`the code is valid but does not seem to be an app`，且已有Accepted/CDHash证据和真实独立进程探针。后者报告仍标为**spctl未通过（不是App）**。其它拒绝（包括Unnotarized）、未知非零结果全部阻断，不能拿一次成功spawn替代Gatekeeper拒绝。
 

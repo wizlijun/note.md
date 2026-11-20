@@ -137,7 +137,7 @@ gtk = "0.18"
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2", "vendored-openssl"] }
 
 [dev-dependencies]
-notemd-sumi-backend = { path = "../plugins-src/write/backend" }
+notemd-sumi-backend = { git = "https://github.com/wizlijun/sumiwrite", tag = "notemd-plugin-v0.1.16" }
 tempfile = "3"
 # `vault_ios` is `#![cfg(any(target_os = "ios", test))]` — it compiles on the dev
 # machine so its logic is unit-testable off-device, and it needs git2. Keeping
@@ -156,3 +156,7 @@ incremental = false
 # Keep GTK native overlays compatible with the runtime resize event handlers.
 [patch.crates-io]
 tauri-runtime-wry = { path = "../vendor/tauri-runtime-wry" }
+
+[patch."https://github.com/wizlijun/note.md"]
+notemd-plugin-sdk = { path = "../notemd-plugin-sdk" }
+plugin-protocol = { path = "../plugin-protocol" }

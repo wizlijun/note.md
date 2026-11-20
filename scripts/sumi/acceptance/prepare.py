@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Prepare only synthetic Sumi GUI acceptance data; --install writes unique App Support."""
 from pathlib import Path
-import argparse, hashlib, json, shutil, tempfile
+import argparse, hashlib, json, os, shutil, tempfile
 
 repo=Path(__file__).resolve().parents[3]
+# The Sumi plugin source lives in sumiwrite; build it there before preparing.
+sumiwrite=Path(os.environ.get('SUMIWRITE_DIR') or repo.parent/'sumiwrite')
 work=repo/'tasks/sumi-native/host-acceptance'
 identity='net.notemd.sumi.acceptance'
 vault=work/'vault'
@@ -40,7 +42,8 @@ marker={'identifier':identity,'vault':str(vault),'purpose':'Sumi isolated GUI ac
 write(stage/'.sumi-acceptance.json',marker)
 write(stage/'shared.json',{'version':1,'sotvault':str(vault)})
 write(stage/'settings.json',{'locale':'zh','mcpServer':{'enabled':False},'dailyNotes':{'enabled':False},'recentFiles':[],'autoSave':False})
-plugin=repo/'plugins-src/write'
+plugin=sumiwrite/'apps/notemd-plugin'
+if not (plugin/'manifest.v2.json').is_file():raise SystemExit(f'需要 sumiwrite 检出,设置 SUMIWRITE_DIR (no apps/notemd-plugin in: {sumiwrite})')
 manifest=json.loads((plugin/'manifest.v2.json').read_text())
 if manifest['id']!='notemd.sumi':raise SystemExit('Unexpected plugin identity')
 if not (plugin/'dist/index.html').is_file():raise SystemExit('Build the production Sumi plugin before preparing acceptance')

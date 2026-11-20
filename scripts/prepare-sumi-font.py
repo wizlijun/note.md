@@ -3,14 +3,20 @@
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
+import sys
 import urllib.request
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 # Isolated ignored development cache; never included by the host or Vite.
 DEST = ROOT / 'src-tauri/resources/sumi'
-RESOURCE_DIR = ROOT / 'plugins-src/write/resources/sumi'
+# The catalog and license documents live with the plugin in sumiwrite.
+SUMIWRITE = Path(os.environ.get('SUMIWRITE_DIR') or ROOT.parent / 'sumiwrite')
+RESOURCE_DIR = SUMIWRITE / 'apps/notemd-plugin/resources/sumi'
+if not (RESOURCE_DIR / 'manifest.json').is_file():
+    sys.exit(f'需要 sumiwrite 检出,设置 SUMIWRITE_DIR (no font catalog at {RESOURCE_DIR})')
 # The tracked manifest is the single source for both development preparation and
 # the runtime download catalog; font binaries remain ignored development assets.
 MANIFEST = json.loads((RESOURCE_DIR / 'manifest.json').read_text())

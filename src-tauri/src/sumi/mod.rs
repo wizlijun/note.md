@@ -4088,7 +4088,7 @@ mod tests {
 
     #[test]
     fn font_catalog_contains_only_selected_presets() {
-        let manifest: Value = serde_json::from_str(include_str!("../../../plugins-src/write/resources/sumi/manifest.json")).unwrap();
+        let manifest: Value = serde_json::from_str(notemd_sumi_backend::fonts::MANIFEST_JSON).unwrap();
         for alias in manifest["cascades"].as_object().unwrap().keys() { assert!(fonts::known_font(alias)); }
         assert!(!fonts::known_font("Sumi Elite"));
         assert!(!fonts::known_font("../../other-font"));
@@ -4864,5 +4864,7 @@ mod tests {
 /// Private stdio process callback; deliberately absent from UI RPC routing.
 pub(crate) async fn service_callback<R: Runtime>(app:&tauri::AppHandle<R>,plugin:&str,value:Value)->Result<Value>{service::callback(app,plugin,value).await}
 
+#[cfg(test)]
+mod backend_proxy_tests;
 #[cfg(test)]
 mod lifecycle_tests;

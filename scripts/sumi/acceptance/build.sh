@@ -3,14 +3,24 @@
 set -euo pipefail
 sumi_repo="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$sumi_repo"
+# The Sumi plugin is built from sumiwrite (SUMIWRITE_DIR, default ../sumiwrite).
+SUMIWRITE_DIR="${SUMIWRITE_DIR:-$sumi_repo/../sumiwrite}"
+if [[ ! -f "$SUMIWRITE_DIR/apps/notemd-plugin/manifest.v2.json" ]]; then
+  echo "需要 sumiwrite 检出,设置 SUMIWRITE_DIR (no apps/notemd-plugin in: $SUMIWRITE_DIR)" >&2
+  exit 1
+fi
+SUMIWRITE_DIR="$(cd "$SUMIWRITE_DIR" && pwd)"
+export SUMIWRITE_DIR
+sumi_app="$SUMIWRITE_DIR/apps/notemd-plugin"
 python3 - <<'PY'
-import json,tomllib
+import json,os,tomllib
 from pathlib import Path
 root=Path.cwd()
+plugin=Path(os.environ['SUMIWRITE_DIR'])/'apps/notemd-plugin'
 package=json.loads((root/'package.json').read_text())['version']
 cargo=tomllib.loads((root/'src-tauri/Cargo.toml').read_text())['package']['version']
 config=json.loads((root/'src-tauri/tauri.conf.json').read_text())['version']
-required=json.loads((root/'plugins-src/write/manifest.v2.json').read_text())['engines']['notemd'].removeprefix('>=')
+required=json.loads((plugin/'manifest.v2.json').read_text())['engines']['notemd'].removeprefix('>=')
 if len({package,cargo,config})!=1 or tuple(map(int,package.split('.')))<tuple(map(int,required.split('.'))):
     raise SystemExit('First align the host release version with the Sumi manifest; never lower the manifest requirement for acceptance.')
 feature=tomllib.loads((root/'src-tauri/Cargo.toml').read_text()).get('features',{})
@@ -18,12 +28,10 @@ if 'sumi-acceptance' not in feature:raise SystemExit('Missing isolation feature'
 print('Acceptance host version:',package)
 PY
 env pnpm_config_verify_deps_before_run=false pnpm build
-(
-  cd plugins-src/write
-  ../../node_modules/.bin/vite build
-)
-env RUSTUP_TOOLCHAIN=1.99.0 cargo build --locked --manifest-path plugins-src/write/backend/Cargo.toml --target aarch64-apple-darwin --bin notemd-sumi
-sumi_backend="$sumi_repo/plugins-src/write/backend/target/aarch64-apple-darwin/debug/notemd-sumi"
+npm --prefix "$sumi_app" ci
+npm --prefix "$sumi_app" run build
+env RUSTUP_TOOLCHAIN=1.99.0 cargo build --locked --manifest-path "$sumi_app/backend/Cargo.toml" --target aarch64-apple-darwin --bin notemd-sumi
+sumi_backend="$sumi_app/backend/target/aarch64-apple-darwin/debug/notemd-sumi"
 sumi_sign_args=(--force --options runtime --identifier net.notemd.sumi.acceptance.backend --sign "${SUMI_ACCEPTANCE_SIGNING_IDENTITY:--}")
 if [[ "${SUMI_ACCEPTANCE_SIGNING_IDENTITY:--}" != "-" ]]; then sumi_sign_args+=(--timestamp); fi
 codesign "${sumi_sign_args[@]}" "$sumi_backend"
@@ -51,7 +59,7 @@ env RUSTUP_TOOLCHAIN=1.99.0 \
   CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_DEV_CODEGEN_UNITS=1 CARGO_INCREMENTAL=0 \
   ./node_modules/.bin/tauri build --debug --target aarch64-apple-darwin --features sumi-acceptance --bundles app --config "$sumi_repo/tasks/sumi-native/host-acceptance/tauri.acceptance.json"
 python3 - <<'PY'
-import hashlib,json,plistlib,sys
+import hashlib,json,os,plistlib,sys
 from pathlib import Path
 root=Path.cwd()
 sys.path.insert(0,str(root/'scripts/sumi/acceptance'))
@@ -62,7 +70,7 @@ if info['CFBundleIdentifier']!='net.notemd.sumi.acceptance':raise SystemExit('Wr
 if info.get('CFBundleDocumentTypes'):raise SystemExit('Acceptance bundle must not register document associations')
 schemes=[scheme for row in info.get('CFBundleURLTypes',[]) for scheme in row.get('CFBundleURLSchemes',[])]
 if schemes!=['notemd-sumi-acceptance']:raise SystemExit('Unexpected acceptance URL schemes')
-manifest_raw=(root/'plugins-src/write/resources/sumi/manifest.json').read_bytes()
+manifest_raw=(Path(os.environ['SUMIWRITE_DIR'])/'apps/notemd-plugin/resources/sumi/manifest.json').read_bytes()
 manifest=json.loads(manifest_raw)
 if (app/'Contents/Resources/resources/sumi').exists():raise SystemExit('Acceptance host must not contain Sumi resources')
 plugin=Path.home()/'Library/Application Support/net.notemd.sumi.acceptance/plugins/notemd.sumi/current'

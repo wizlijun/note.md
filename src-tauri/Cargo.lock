@@ -3515,6 +3515,7 @@ dependencies = [
 [[package]]
 name = "notemd-sumi-backend"
 version = "0.1.5"
+source = "git+https://github.com/wizlijun/sumiwrite?tag=notemd-plugin-v0.1.16#ea1bc6a5f9d97689466fcd84e17295e91b9d653d"
 dependencies = [
  "base64 0.22.1",
  "cc",

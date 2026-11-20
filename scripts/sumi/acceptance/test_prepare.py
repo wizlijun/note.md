@@ -22,7 +22,8 @@ class PreparationTests(unittest.TestCase):
         self.home = Path(self.temp.name).resolve() / 'home'
         self.home.mkdir()
         self.work = self.root / 'tasks/sumi-native/host-acceptance'
-        self.plugin = self.root / 'plugins-src/write'
+        self.sumiwrite = Path(self.temp.name).resolve() / 'sumiwrite'
+        self.plugin = self.sumiwrite / 'apps/notemd-plugin'
         (self.plugin / 'dist').mkdir(parents=True)
         (self.plugin / 'dist/index.html').write_text('production main')
         self.manifest = {'id': 'notemd.sumi', 'version': '0.1.0', 'capabilities': ['vault.read'],
@@ -33,7 +34,7 @@ class PreparationTests(unittest.TestCase):
 
     def run_prepare(self, *args):
         return subprocess.run(['python3', str(self.scripts / 'prepare.py'), '--benchmark-dir', str(self.benchmark), *args],
-                              env={**os.environ, 'HOME': str(self.home)}, text=True, capture_output=True)
+                              env={**os.environ, 'HOME': str(self.home), 'SUMIWRITE_DIR': str(self.sumiwrite)}, text=True, capture_output=True)
 
     def test_paths_config_and_reinstall_preserve_user_state(self):
         result = self.run_prepare('--install')
@@ -102,6 +103,12 @@ class PreparationTests(unittest.TestCase):
         rejected = self.run_prepare(*options)
         self.assertNotEqual(rejected.returncode, 0)
         self.assertIn('backend hash mismatch', rejected.stderr)
+
+    def test_missing_sumiwrite_checkout_is_a_clear_error(self):
+        shutil.rmtree(self.sumiwrite)
+        result = self.run_prepare()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('需要 sumiwrite 检出,设置 SUMIWRITE_DIR', result.stderr)
 
     def test_refuses_symlink_work_directory(self):
         self.work.parent.mkdir(parents=True)

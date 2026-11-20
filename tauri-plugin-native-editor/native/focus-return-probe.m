@@ -112,7 +112,10 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
     NSString *fontRoot=argc>1?[NSString stringWithUTF8String:argv[1]]:nil;
     NSMutableArray *families=[NSMutableArray arrayWithObject:@"Sumi System"];
     if(fontRoot){
-        NSDictionary *manifest=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:@"plugins-src/write/resources/sumi/manifest.json"] options:0 error:nil];require(manifest!=nil,@"uses production font manifest");
+        // argv[1] font directory, argv[2] font catalog: the caller passes
+        // $SUMIWRITE_DIR/apps/notemd-plugin/resources/sumi/manifest.json.
+        require(argc>2,@"font registration needs the font catalog path after the font directory");
+        NSDictionary *manifest=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[NSString stringWithUTF8String:argv[2]]] options:0 error:nil];require(manifest!=nil,@"uses production font manifest");
         for(NSDictionary *asset in manifest[@"assets"]){if(!asset[@"postscript"])continue;char *error=NULL;NSString *path=[fontRoot stringByAppendingPathComponent:asset[@"file"]];require(sumi_editor_register_font(path.UTF8String,[asset[@"postscript"] UTF8String],&error)==0,@"registers exact writing font");free(error);}
         for(NSString *alias in [manifest[@"cascades"] allKeys]){NSString *encoded=[[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:@{@"alias":alias,@"families":manifest[@"cascades"][alias]} options:0 error:nil] encoding:NSUTF8StringEncoding];char *error=NULL;require(sumi_editor_register_cascade(encoded.UTF8String,&error)==0,@"registers production font cascade");free(error);[families addObject:alias];}
     }
@@ -140,7 +143,7 @@ int main(int argc,const char **argv){@autoreleasepool{if(@available(macOS 13.0,*
             [text setMarkedText:@"pin" selectedRange:NSMakeRange(3,0) replacementRange:NSMakeRange(NSNotFound,0)];checkRows(text);
             [text insertText:@"拼音" replacementRange:NSMakeRange(NSNotFound,0)];require(!text.hasMarkedText && !probeEditor.composing,@"real marked-text commit finishes before Return");
             [text keyDown:key(window,@"\r",36)];checkRows(text);
-            if(argc>2 && [family isEqual:@"Sumi Zhaohua"] && size.intValue==50 && height.intValue==620 && !mixedStyles && middle.boolValue)capture(probeEditor.container,[NSString stringWithUTF8String:argv[2]]);
+            if(argc>3 && [family isEqual:@"Sumi Zhaohua"] && size.intValue==50 && height.intValue==620 && !mixedStyles && middle.boolValue)capture(probeEditor.container,[NSString stringWithUTF8String:argv[3]]);
         }
         sumi_editor_detach(handle);[window close];probeEditor=nil;
     }

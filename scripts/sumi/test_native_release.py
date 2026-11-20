@@ -11,7 +11,10 @@ class NativeReleaseTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name).resolve();(self.root/'source.rs').write_text('frozen')
         self.input=self.root/'input';self.input.write_bytes(b'unsigned backend')
-        self.args=SimpleNamespace(target='aarch64-apple-darwin',source='a'*40,binary=self.input,output_dir=self.root/'evidence')
+        self.checklist={'schema':1,'plugin':'notemd.sumi','version':'0.1.16','source_tag':'notemd-plugin-v0.1.16','source_commit':'b'*40,
+                        'files':{'bin/notemd-sumi':n.sha(b'unsigned backend'),'manifest.json':'c'*64}}
+        (self.root/'checklist.json').write_text(json.dumps(self.checklist))
+        self.args=SimpleNamespace(target='aarch64-apple-darwin',source='a'*40,binary=self.input,output_dir=self.root/'evidence',checklist=self.root/'checklist.json')
         self.calls=[];self.wait_timeout=False;self.invalid=False
         self.env={'APPLE_TEAM_ID':'ABCDEFGHIJ','APPLE_SIGNING_IDENTITY':'Developer ID Application: Test (ABCDEFGHIJ)','SUMI_NOTARY_PROFILE':'fixture-profile'}
         self.job='12345678-1234-1234-1234-123456789abc'
@@ -39,8 +42,18 @@ class NativeReleaseTests(unittest.TestCase):
         self.assertEqual(r['status'],'Accepted');self.assertEqual(r['binary']['sha256'],n.sha((self.args.output_dir/'notemd-sumi').read_bytes()))
         self.assertFalse(r['spctl']['notarized_developer_id'])
     def test_source_freeze_covers_all_local_compiled_crates(self):
-        self.assertTrue({'plugins-src/write/backend','notemd-plugin-sdk','plugin-protocol'} <= set(n.SOURCE_DIRS))
+        self.assertTrue({'notemd-plugin-sdk','plugin-protocol'} <= set(n.SOURCE_DIRS))
+        self.assertNotIn('plugins-src/write/backend',n.SOURCE_DIRS)
         self.assertFalse({'sumi-protocol','write-core'} & set(n.SOURCE_DIRS))
+    def test_checklist_provenance_written_to_state_and_receipt(self):
+        self.execute()
+        expected={k:self.checklist[k] for k in ['source_tag','source_commit','files']}
+        for name in ['state.json','receipt.json']:
+            self.assertEqual(json.loads((self.args.output_dir/name).read_text())['plugin_checklist'],expected)
+    def test_checklist_for_a_different_binary_rejected_before_signing(self):
+        self.checklist['files']['bin/notemd-sumi']='d'*64;(self.root/'checklist.json').write_text(json.dumps(self.checklist))
+        with self.assertRaisesRegex(RuntimeError,'Checklist does not describe'):self.execute()
+        self.assertEqual(self.calls,[])
 
     def test_missing_identity_rejected_before_any_external_command(self):
         self.env.pop('APPLE_SIGNING_IDENTITY')
