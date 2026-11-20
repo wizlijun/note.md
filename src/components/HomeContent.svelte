@@ -6,6 +6,7 @@
 
   let actionError = $state<string | null>(null)
   let pending = $state(false)
+  const COLLAPSED_ROWS = 4
   const PAGE_SIZE = 10
   let expanded = $state({ new: false, continue: false })
   let expandedRows = $state({ new: PAGE_SIZE * 2, continue: PAGE_SIZE * 2 })
@@ -38,7 +39,7 @@
   <div class="content-columns">
     {#each sections as section (section.kind)}
       {@const isExpanded = expanded[section.kind]}
-      {@const visibleRows = isExpanded ? expandedRows[section.kind] : PAGE_SIZE}
+      {@const visibleRows = isExpanded ? expandedRows[section.kind] : COLLAPSED_ROWS}
       <section aria-labelledby={`home-content-${section.kind}`}>
         <div class="content-heading">
           <h2 id={`home-content-${section.kind}`}>{section.title}</h2>
@@ -46,7 +47,7 @@
             {#if section.kind === 'new'}
               <button class="content-more content-rules" onclick={() => openSettings('search')}>{t('homeContent.rules')}</button>
             {/if}
-            {#if section.items.length > PAGE_SIZE}
+            {#if section.items.length > COLLAPSED_ROWS}
               <button class="content-more" aria-controls={`home-content-list-${section.kind}`} aria-expanded={isExpanded}
                 onclick={() => { expanded[section.kind] = !isExpanded }}>{isExpanded ? t('homeContent.less') : t('homeContent.more')}</button>
             {/if}

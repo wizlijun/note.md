@@ -52,19 +52,19 @@ it('toggles each list independently and loads the next ten rows from the bottom'
   const toggle = (kind: string) => control('.content-more', kind)!
   const loadMore = (kind: string) => control('.content-load-more', kind)
 
-  expect([rows('new'), rows('continue')]).toEqual([10, 10])
+  expect([rows('new'), rows('continue')]).toEqual([4, 4])
   expect(toggle('new').textContent?.trim()).toBe('More')
   expect(toggle('new').getAttribute('aria-expanded')).toBe('false')
   expect(loadMore('new')).toBeNull()
   toggle('new').click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([20, 10])
+  expect([rows('new'), rows('continue')]).toEqual([20, 4])
   expect(toggle('new').textContent?.trim()).toBe('Less')
   expect(toggle('new').getAttribute('aria-expanded')).toBe('true')
   expect(loadMore('new')?.previousElementSibling?.id).toBe('home-content-list-new')
   expect(loadMore('new')?.textContent?.trim()).toBe('Load more')
 
   loadMore('new')!.click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([30, 10])
+  expect([rows('new'), rows('continue')]).toEqual([30, 4])
   toggle('continue').click(); await settle()
   expect([rows('new'), rows('continue')]).toEqual([30, 20])
   loadMore('new')!.click(); await settle()
@@ -75,7 +75,7 @@ it('toggles each list independently and loads the next ten rows from the bottom'
   expect(loadMore('continue')).toBeNull()
 
   toggle('new').click(); await settle()
-  expect([rows('new'), rows('continue')]).toEqual([10, 21])
+  expect([rows('new'), rows('continue')]).toEqual([4, 21])
   expect(toggle('new').textContent?.trim()).toBe('More')
   toggle('new').click(); await settle()
   expect([rows('new'), rows('continue')]).toEqual([35, 21])
@@ -88,22 +88,22 @@ it('opens the folder rules from the new-content heading', async () => {
   button('Folder rules').click(); await settle()
   expect(mocks.openSettings).toHaveBeenCalledExactlyOnceWith('search')
 })
-it.each([0, 1, 10])('omits more when the list has %i rows', async count => {
+it.each([0, 1, 4])('omits more when the list has %i rows', async count => {
   mocks.store.newItems = Array.from({ length: count }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md` }))
   app = mount(HomeContent, { target: document.body }); await settle()
   expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(count)
   expect(document.querySelector('[aria-controls="home-content-list-new"]')).toBeNull()
   expect(document.querySelector('.content-load-more')).toBeNull()
 })
-it('keeps a large catalog bounded and resets to ten when home is reopened', async () => {
+it('keeps a large catalog bounded and resets to four when home is reopened', async () => {
   mocks.store.newItems = Array.from({ length: 1000 }, (_, i) => ({ ...fresh, path: `/vault/new-${i}.md` }))
   app = mount(HomeContent, { target: document.body }); await settle()
-  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(10)
+  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(4)
   button('More').click(); await settle()
   expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(20)
   await unmount(app)
   app = mount(HomeContent, { target: document.body }); await settle()
-  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(10)
+  expect(document.querySelectorAll('[data-content-kind="new"]')).toHaveLength(4)
 })
 it('opens an item and independently dismisses an item in its own list', async () => {
   app = mount(HomeContent, { target: document.body }); await settle()

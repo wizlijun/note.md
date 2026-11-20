@@ -7,6 +7,8 @@ For the full commit history, see the git log.
 
 ## Unreleased
 
+- The home New Content and Continue Reading lists start with four documents each. Select More to expand a list.
+
 ## v6.1120.2 — 2026-11-20
 
 - Home New Content can include or exclude specific Vault folders. Dismissing a fourth distinct document from a folder automatically excludes that folder, and the exclusion can be restored in settings. Both home document lists toggle More and Less, with a button at the bottom to load another 10 items.
