@@ -91,7 +91,8 @@ fn mapped_type_origin(concept_type: &str) -> Option<Origin> {
         "Note" | "Writing Page" | "Outline Note" | "Daily Note" | "Wiki Page" | "Idea" | "Next" | "Task"
         | "Vault Conventions" | "User Profile" | "Memory" | "Trace Request" | "Skill" => Some(Origin::Human),
         "Book Summary" | "Book Topic Index" | "Answer" | "Idea Proof" | "Reading Report"
-        | "Decision Board" | "Decision Archive" | "Trace Report" | "Task Kickoff" => Some(Origin::Derived),
+        | "Decision Board" | "Decision Archive" | "Trace Report" | "Task Kickoff"
+        | "Conversation Corrections" => Some(Origin::Derived),
         "Book" | "Trace Material" => Some(Origin::Source),
         _ => None,
     }

@@ -1,3 +1,4 @@
+pub mod agent_context;
 pub mod integration;
 pub mod model;
 pub mod service;

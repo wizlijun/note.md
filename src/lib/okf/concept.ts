@@ -60,6 +60,8 @@ export const CONCEPT_TYPE = {
   traceMaterial: 'Trace Material',
   /** 溯源:用户的委托稿,报告同名子目录下的 `00-request.md`(委托时落盘,agent 只读) */
   traceRequest: 'Trace Request',
+  /** 沟通转写勘误:由已确认词典派生的 agent 上下文 `vocabulary.md`(plugins-src/conversation-dictionary,Rust 侧常量 `agent_context::CONCEPT_TYPE`) */
+  conversationCorrections: 'Conversation Corrections',
   /** vault 根的 AGENTS.md(模板见 src-tauri/templates/AGENTS.md) */
   vaultConventions: 'Vault Conventions',
   /** vault 根的 USER.md：owner 身份与稳定画像的唯一来源 */

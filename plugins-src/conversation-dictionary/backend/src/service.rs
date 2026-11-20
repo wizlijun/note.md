@@ -1,3 +1,4 @@
+use crate::agent_context;
 use crate::integration;
 use crate::model::*;
 use crate::storage;
@@ -58,6 +59,7 @@ impl DictionaryService {
                         "schema": "notemd.conversation-dictionary-status.v1",
                         "status": if migration["required"] == true { "migration_required" } else { "ready" },
                         "dictionary_path": settings.dictionary_path,
+                        "agent_context_path": agent_context::vault_relative_path(&self.vault).ok(),
                         "dictionary_id": dictionary.dictionary_id,
                         "subject_id": dictionary.subject_id,
                         "revision": dictionary.revision,
@@ -145,11 +147,14 @@ impl DictionaryService {
         }
         let _integration_lock = storage::lock_file(&self.vault)?;
         let agent_integration = integration::ensure_agent_integration(&self.vault)?;
+        let agent_context = agent_context::sync(&self.vault, &dictionary)
+            .unwrap_or_else(|error| json!({ "error": error }));
         Ok(json!({
             "status": if dictionary_created { "created" } else { "existing" },
             "dictionary_created": dictionary_created,
             "dictionary": dictionary,
             "agent_integration": agent_integration,
+            "agent_context": agent_context,
             "example": integration::default_example(),
         }))
     }
@@ -196,6 +201,26 @@ impl DictionaryService {
             "entries":dictionary.entries.len(),
             "rules":dictionary.rules.len(),
         }))
+    }
+
+    /// Without a domain: refresh the derived Markdown file and return its path.
+    /// With a domain: return that context's Markdown without writing anything.
+    pub fn agent_context(&self, domain_id: Option<&str>) -> Result<Value, String> {
+        let _lock = storage::lock_file(&self.vault)?;
+        self.recover_journal_locked()?;
+        let (dictionary, _) = storage::verified_dictionary(&self.vault)?;
+        validate_dictionary(&dictionary)?;
+        match domain_id {
+            Some(id) => {
+                let settings = storage::load_settings(&self.vault)?;
+                Ok(json!({
+                    "domain_id": id,
+                    "revision": dictionary.revision,
+                    "markdown": agent_context::render(&dictionary, &settings.dictionary_path, Some(id))?,
+                }))
+            }
+            None => agent_context::sync(&self.vault, &dictionary),
+        }
     }
 
     pub fn list(&self, domain_id: &str) -> Result<Value, String> {
@@ -1705,6 +1730,8 @@ impl DictionaryService {
         }
         storage::save_control(&self.vault, control)?;
         fs::remove_file(storage::journal_path(&self.vault)).map_err(|error| error.to_string())?;
+        // Derived file: a failure must not turn a committed transaction into an error.
+        let _ = agent_context::sync(&self.vault, dictionary);
         Ok(())
     }
 
@@ -1744,6 +1771,8 @@ impl DictionaryService {
         }
         storage::save_control(&self.vault, control)?;
         fs::remove_file(storage::journal_path(&self.vault)).map_err(|error| error.to_string())?;
+        // Derived file: a failure must not turn a committed transaction into an error.
+        let _ = agent_context::sync(&self.vault, dictionary);
         Ok(())
     }
 
@@ -3718,6 +3747,16 @@ mod tests {
                 .as_deref(),
             Some("human:alice")
         );
+        let vocabulary =
+            fs::read_to_string(temp.path().join("ssot/meetings/vocabulary.md")).unwrap();
+        assert!(vocabulary.contains("revision: 2\n"));
+        assert!(vocabulary.contains("- person: 伟滔 ← Bruce, 伟涛, 伟韬\n"));
+        let context = service.agent_context(None).unwrap();
+        assert_eq!(context["path"], "ssot/meetings/vocabulary.md");
+        assert_eq!(context["updated"], false);
+        let domain = dictionary.domains[0].id.clone();
+        let scoped = service.agent_context(Some(&domain)).unwrap();
+        assert!(scoped["markdown"].as_str().unwrap().contains("## 工作会议"));
     }
 
     #[test]

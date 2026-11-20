@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "notemd.conversation-dictionary",
   "name": "Conversation Transcript Corrections",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "kind": "native",
   "engines": {
     "notemd": ">=6.916.1"
@@ -51,7 +51,7 @@
             "name": "action",
             "type": "string",
             "required": true,
-            "help": "status, list, resolve, propose, pending, check, dataset-check or dataset-import"
+            "help": "status, list, context, resolve, propose, pending, check, dataset-check or dataset-import"
           }
         ],
         "flags": [

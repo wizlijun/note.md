@@ -87,6 +87,7 @@ impl ConversationDictionaryPlugin {
                 service.propose(request)
             }
             "pending" => service.pending(cli_str(context, "id").as_deref()),
+            "context" => service.agent_context(cli_str(context, "domain").as_deref()),
             "dataset-check" => {
                 let input =
                     cli_str(context, "input").ok_or("--input is required for dataset-check")?;
